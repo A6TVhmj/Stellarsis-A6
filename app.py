@@ -11,9 +11,10 @@ import sqlite3
 import logging
 from flask import (
     Flask, render_template, request, redirect, url_for, 
-    flash, session, send_from_directory, jsonify, abort,
+    flash, session, send_from_directory, send_file, jsonify, abort,
     make_response
 )
+import tempfile
 from flask_login import (
     LoginManager, UserMixin, login_user, 
     logout_user, current_user, login_required
@@ -1576,6 +1577,75 @@ def optimize_database():
     except Exception as e:
         log_admin_action(f"数据库优化失败: {str(e)}")
         return jsonify(success=False, message=f"数据库优化失败: {str(e)}"), 500
+
+
+@app.route('/down', methods=['GET'])
+@login_required
+def download_app_archive():
+    """为管理员打包当前应用目录并发送（压缩为 zip）。
+    生成的压缩包会放在临时目录，并在后台清理。
+    """
+    if not current_user.is_admin():
+        return jsonify(success=False, message="权限不足"), 403
+
+    try:
+        src_dir = os.path.dirname(os.path.abspath(__file__))
+        tmp_dir = tempfile.mkdtemp(prefix='stellarsis_export_')
+        base_name = os.path.join(tmp_dir, 'stellarsis_src')
+        archive_path = shutil.make_archive(base_name, 'zip', root_dir=src_dir)
+
+        # 异步清理临时目录（延迟一段时间，确保文件已发送）
+        def _cleanup(path=archive_path, dirpath=tmp_dir):
+            try:
+                time.sleep(30)
+                if os.path.exists(path):
+                    os.remove(path)
+                if os.path.exists(dirpath):
+                    shutil.rmtree(dirpath)
+            except Exception:
+                pass
+
+        threading.Thread(target=_cleanup, daemon=True).start()
+
+        log_admin_action(f"管理员 {current_user.username} 下载了应用源码压缩包")
+        # send_file 可以直接从路径发送
+        return send_file(archive_path, as_attachment=True, download_name=os.path.basename(archive_path))
+    except Exception as e:
+        log_admin_action(f"生成应用压缩包失败: {str(e)}")
+        return jsonify(success=False, message=f"打包失败: {str(e)}"), 500
+
+
+@app.route('/downdb', methods=['GET'])
+@login_required
+def download_database_file():
+    """为管理员直接发送数据库文件 stellarsis.db。
+    支持以 sqlite:/// 开头的 SQLALCHEMY_DATABASE_URI。
+    """
+    if not current_user.is_admin():
+        return jsonify(success=False, message="权限不足"), 403
+
+    try:
+        db_uri = app.config.get('SQLALCHEMY_DATABASE_URI', '')
+        # 只处理 sqlite URI
+        if not db_uri.startswith('sqlite:///'):
+            return jsonify(success=False, message='不支持的数据库类型，只有 SQLite 文件可供下载'), 400
+
+        db_path = db_uri.replace('sqlite:///', '')
+        # 如果是相对路径，解析到应用目录下
+        if not os.path.isabs(db_path):
+            db_path = os.path.join(app.root_path, db_path)
+
+        if not os.path.exists(db_path):
+            return jsonify(success=False, message='数据库文件不存在'), 404
+
+        dirpath = os.path.dirname(db_path)
+        fname = os.path.basename(db_path)
+
+        log_admin_action(f"管理员 {current_user.username} 下载了数据库文件 {fname}")
+        return send_from_directory(directory=dirpath, path=fname, as_attachment=True)
+    except Exception as e:
+        log_admin_action(f"发送数据库文件失败: {str(e)}")
+        return jsonify(success=False, message=f"发送数据库失败: {str(e)}"), 500
 
 @app.route('/api/admin/shutdown', methods=['POST'])
 @login_required
