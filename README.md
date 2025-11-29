@@ -1,6 +1,6 @@
-# StellarSIS - Stellar Information System
+# Stellarsis - Stellar Information System
 
-StellarSIS (Stellar Information System) is a feature-rich online community platform that integrates chat, forum, user management, and more. The system provides users with a secure, efficient, and scalable communication environment, supporting multi-room chat, partitioned forums, user following, and other features.
+Stellarsis (The same as the game of paradox) is a feature-rich online community platform that integrates chat, forum, user management, and more. The system provides users with a secure, efficient, and scalable communication environment, supporting multi-room chat, partitioned forums, user following, and other features.
 
 ## Documentation
 
