@@ -5,7 +5,7 @@ import json
 import sys
 import shutil
 import threading
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 import sqlite3
 import logging
@@ -485,7 +485,6 @@ def sanitize_content(content):
 def get_online_users(room_id):
     """获取指定房间的在线用户"""
     # 获取最近5分钟有活动的用户
-    from datetime import datetime, timedelta
     cutoff_time = datetime.utcnow() - timedelta(seconds=app.config.get('ONLINE_TIMEOUT', 300))
     
     # 实际上Flask-SocketIO没有内置的房间在线用户列表，我们需要自己维护
@@ -821,7 +820,6 @@ def api_delete_forum_reply(reply_id):
 @login_required
 def get_online_count():
     """获取全局在线用户数"""
-    from datetime import datetime, timedelta
     cutoff_time = datetime.utcnow() - timedelta(seconds=app.config.get('ONLINE_TIMEOUT', 300))
     
     # 查询最近活动的用户数
@@ -2076,7 +2074,6 @@ def delete_chat_messages():
         
         if before_date:
             # 将字符串转换为datetime对象
-            from datetime import datetime
             before_datetime = datetime.fromisoformat(before_date.replace('Z', '+00:00'))
             query = query.filter(ChatMessage.timestamp < before_datetime)
 
@@ -2448,7 +2445,6 @@ def handle_get_global_online_count(data):
     if not current_user.is_authenticated:
         return
     
-    from datetime import datetime, timedelta
     cutoff_time = datetime.utcnow() - timedelta(seconds=app.config.get('ONLINE_TIMEOUT', 300))
     
     # 查询最近活动的用户数
@@ -2572,7 +2568,6 @@ def inject_user():
 @app.context_processor
 def inject_online_count():
     """注入在线用户数到模板"""
-    from datetime import datetime, timedelta
     cutoff_time = datetime.utcnow() - timedelta(seconds=app.config.get('ONLINE_TIMEOUT', 300))
     
     # 查询最近活动的用户数
@@ -2634,3 +2629,4 @@ if __name__ == '__main__':
     CORS(app, resources={r"/socket.io/*": {"origins": "*"}})
     logger.info("应用启动成功")
     socketio.run(app, host='0.0.0.0', port=5000,debug=app.config['DEBUG'])
+
