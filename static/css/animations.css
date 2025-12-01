@@ -78,12 +78,15 @@ a, button, input, textarea, select, .btn, .card, .modal, .toast, .alert {
 /* 输入控件 */
 input, textarea, select {
   transition: all var(--duration-fast) var(--ease-in-out);
+  color: var(--input-text-color);
+  background: var(--surface-color);
+  border: 1px solid var(--card-border-color);
 }
 
 input:focus, textarea:focus, select:focus {
   outline: none;
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
-  border-color: #818cf8;
+  border-color: var(--primary-500);
 }
 
 /* 卡片悬停效果 */
@@ -149,7 +152,7 @@ input:focus, textarea:focus, select:focus {
   left: 50%;
   width: 5px;
   height: 5px;
-  background: rgba(255, 255, 255, 0.5);
+  background: var(--overlay-medium);
   opacity: 0;
   border-radius: 100%;
   transform: scale(1, 1) translate(-50%);
@@ -198,8 +201,8 @@ input:focus, textarea:focus, select:focus {
   display: inline-block;
   width: 24px;
   height: 24px;
-  border: 2px solid #f3f4f6;
-  border-top-color: #6366f1;
+  border: 2px solid var(--neutral-100);
+  border-top-color: var(--primary-600);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }

@@ -12,12 +12,13 @@
   margin-bottom: var(--message-spacing);
   align-items: center;
   text-align: center;
+  background: var(--surface-color);
 }
 
 .room-header h1 {
   font-size: var(--text-3xl);
   font-weight: 700;
-  color: var(--neutral-800);
+  color: var(--text-color);
   margin-bottom: 0.5rem;
   display: flex;
   align-items: center;
@@ -32,7 +33,7 @@
   height: 12px;
   border-radius: 50%;
   background-color: var(--success-500);
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+  background-color: var(--surface-color);
 }
 
 
@@ -47,7 +48,7 @@
   border-radius: var(--radius-lg);
   border: 1px solid var(--neutral-200);
   font-weight: 500;
-  color: var(--neutral-700);
+  color: var(--muted-text-color);
   transition: all 0.2s ease;
 }
 
@@ -60,7 +61,7 @@
   margin-left: auto;
   padding: 0.375rem 0.75rem;
   background-color: var(--primary-600);
-  color: white;
+  color: var(--on-surface);
   border: none;
   border-radius: var(--radius-md);
   cursor: pointer;
@@ -89,7 +90,7 @@
   border-radius: var(--radius-xl);
   overflow: hidden;
   box-shadow: var(--shadow-lg);
-  background-color: white;
+  background-color: var(--surface-color);
   border: 1px solid var(--neutral-200);
   position: relative;
   transition: all 0.2s ease;
@@ -120,7 +121,7 @@
   position: relative;
   word-wrap: break-word;
   animation: messageAppear 0.3s ease;
-  background-color: white;
+  background-color: var(--surface-color);
   box-shadow: var(--shadow-sm);
   transition: all 0.2s ease;
 }
@@ -130,6 +131,7 @@
     opacity: 0;
     transform: translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -139,18 +141,18 @@
 .chat-message.local {
   margin-left: auto;
   background: linear-gradient(135deg, var(--primary-500), var(--primary-400));
-  color: white;
+  color: var(--on-surface);
   border-bottom-right-radius: 8px;
   max-width: calc(var(--message-max-width) + 10%);
 }
 
 .chat-message.local .message-content {
-  color: rgba(255, 255, 255, 0.95);
+  color: var(--on-primary);
 }
 
 .chat-message.remote {
   margin-right: auto;
-  background-color: white;
+  background-color: var(--surface-color);
   border-bottom-left-radius: 8px;
   border: 1px solid var(--neutral-200);
   max-width: calc(var(--message-max-width) + 10%);
@@ -174,7 +176,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  color: var(--on-surface);
   font-weight: 600;
   font-size: 0.875rem;
   flex-shrink: 0;
@@ -239,7 +241,7 @@
   top: 12px;
   z-index: 10;
   text-align: center;
-  color: var(--neutral-600);
+  color: var(--muted-text-color);
   font-style: italic;
   margin: var(--message-spacing) 0;
   padding: 0.75rem;
@@ -254,34 +256,42 @@
 }
 
 .status-connected {
-  background-color: #ecfdf5;
+  background-color: var(--accent-teal-50);
   color: var(--success-700);
-  border-color: #d1fae5;
+  border-color: var(--accent-teal-100);
 }
 
 .status-connecting {
-  background-color: #fffbeb;
-  color: #d97706;
-  border-color: #fef3c7;
+  background-color: var(--neutral-50);
+  color: var(--warning-500);
+  border-color: var(--neutral-100);
 }
 
 .status-disconnected {
-  background-color: #fef2f2;
+  background-color: var(--neutral-50);
   color: var(--danger-700);
-  border-color: #fee2e2;
+  border-color: var(--neutral-100);
 }
 
 .status-error {
-  background-color: #fef2f2;
+  background-color: var(--neutral-50);
   color: var(--danger-700);
-  border-color: #fee2e2;
+  border-color: var(--neutral-100);
   animation: pulse 2s infinite;
 }
 
 @keyframes pulse {
-  0% { opacity: 1; }
-  50% { opacity: 0.7; }
-  100% { opacity: 1; }
+  0% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.7;
+  }
+
+  100% {
+    opacity: 1;
+  }
 }
 
 /* 消息输入区 */
@@ -289,7 +299,7 @@
   display: flex;
   padding: 0.75rem 1rem;
   border-top: 1px solid var(--neutral-200);
-  background-color: white;
+  background-color: var(--surface-color);
   transition: all 0.2s ease;
 }
 
@@ -318,13 +328,13 @@
   font-family: var(--font-base);
   font-size: var(--text-base);
   transition: all 0.2s ease;
-  background-color: var(--neutral-50);
+  background-color: var(--surface-color);
 }
 
 #message-text:focus {
   outline: none;
   border-color: var(--primary-400);
-  background-color: white;
+  background-color: var(--surface-color);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
@@ -333,7 +343,7 @@
   padding: 0 1.5rem;
   height: var(--chat-input-height);
   background: linear-gradient(135deg, var(--primary-600), var(--primary-500));
-  color: white;
+  color: var(--on-surface);
   border: none;
   border-radius: var(--radius-lg);
   cursor: pointer;
@@ -401,7 +411,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  color: var(--on-surface);
   font-weight: 600;
   font-size: 0.875rem;
   flex-shrink: 0;
@@ -409,7 +419,7 @@
 
 .user-name {
   font-weight: 500;
-  color: var(--neutral-800);
+  color: var(--text-color);
   flex: 1;
 }
 
@@ -420,6 +430,7 @@
   background-color: var(--success-500);
   flex-shrink: 0;
 }
+
 .mobile-online-btn {
   position: fixed;
   right: 14px;
@@ -428,7 +439,7 @@
   height: 48px;
   border-radius: 50%;
   background: var(--primary-color);
-  color: white;
+  color: var(--on-surface);
   border: none;
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.14);
   z-index: 60;
@@ -443,6 +454,7 @@
 .mobile-online-btn:active {
   transform: translateY(1px) scale(0.99);
 }
+
 /* 移动端优化 */
 @media (max-width: 768px) {
   #chat-container {
@@ -451,46 +463,46 @@
     box-shadow: none;
     border: none;
   }
-  
+
   #chat-messages {
     padding: 1.25rem 1rem 3.5rem 1rem;
-    background-color: white;
+    background-color: var(--surface-color);
   }
-  
+
   #message-input {
     position: fixed;
     left: 0;
     right: 0;
     bottom: 0;
     padding: 0.75rem 1rem;
-    background: rgba(255, 255, 255, 0.95);
+    background: var(--surface-color);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     border-top: 1px solid var(--neutral-200);
     z-index: 50;
     box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.06);
   }
-  
+
   #message-text {
     min-height: 44px;
     max-height: 120px;
     border-radius: var(--radius-md);
   }
-  
+
   #send-button {
     margin-left: 0.5rem;
     padding: 0 1.25rem;
     border-radius: var(--radius-md);
   }
-  
+
   .room-header h1 {
     font-size: var(--text-xl);
   }
-  
+
   .online-users {
     display: none;
   }
-  
+
   .chat-status {
     display: none;
   }
@@ -501,16 +513,16 @@
   .root {
     --message-max-width: 95%;
   }
-  
-  
+
+
   #chat-messages {
     padding: 1rem 0.75rem 3.5rem 0.75rem;
   }
-  
+
   #message-input {
     padding: 0.625rem 0.75rem;
   }
-  
+
   #message-text {
     padding: 0.625rem 0.875rem;
   }
@@ -524,49 +536,53 @@
     height: calc(100vh - 200px);
     border-radius: var(--radius-2xl);
   }
-  
+
   #chat-messages {
     padding: var(--message-spacing) 2.5rem;
   }
-  
+
   /* 桌面：让头部相对定位，便于将 h1 置中 */
   .room-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
-    position: relative; /* 用于绝对定位 h1 居中 */
+    position: relative;
+    /* 用于绝对定位 h1 居中 */
     /* 为避免绝对定位的 h1 导致父元素塌陷，与上方 header/flash 信息重叠，保留必要高度 */
     min-height: var(--chat-header-height);
-    padding: 0.75rem 0; /* 垂直间距，确保视觉呼吸感 */
+    padding: 0.75rem 0;
+    /* 垂直间距，确保视觉呼吸感 */
   }
-  
+
   /* 桌面：将标题绝对居中（不影响右侧的在线用户控件） */
   .room-header h1 {
     font-size: var(--text-2xl);
     position: absolute;
     left: 50%;
     top: 50%;
-    transform: translate(-50%, -50%); /* 完全居中（水平 + 垂直） */
-    margin: 0; /* 移除额外外边距以确保精确居中 */
+    transform: translate(-50%, -50%);
+    /* 完全居中（水平 + 垂直） */
+    margin: 0;
+    /* 移除额外外边距以确保精确居中 */
   }
 
   /* 桌面端隐藏顶部汉堡菜单（保留移动端可见性） */
   .menu-toggle {
     display: none !important;
   }
-  
+
   .room-header p {
     display: none;
   }
-  
+
   .online-users {
     position: absolute;
     right: 2.5rem;
     margin: 0;
     padding: 0.5rem 1rem;
     border-radius: var(--radius-full);
-    background: rgba(255, 255, 255, 0.9);
+    background: var(--overlay-high);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     box-shadow: var(--shadow-sm);
@@ -574,7 +590,7 @@
     z-index: 10;
     border: 1px solid var(--neutral-200);
   }
-  
+
   .chat-status {
     position: absolute;
     left: 50%;
@@ -590,7 +606,7 @@
 /* 消息渲染错误样式 */
 .render-error {
   color: var(--danger-700);
-  background-color: #fff5f5;
+  background-color: var(--neutral-50);
   padding: 0.75rem;
   border-radius: var(--radius-md);
   margin: 0.5rem 0;
@@ -609,7 +625,7 @@
 
 .katex-error {
   color: var(--danger-700);
-  background-color: #fff5f5;
+  background-color: var(--neutral-100);
   padding: 0.25rem 0.5rem;
   border-radius: var(--radius-sm);
   font-family: var(--font-mono);
@@ -627,6 +643,7 @@
     opacity: 0;
     transform: translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -639,7 +656,7 @@
 }
 
 .chat-message.remote {
-  background: white;
+  background: var(--surface-color);
 }
 
 /* 消息悬停效果 */
@@ -656,18 +673,19 @@
   justify-content: center;
   padding: 0.25rem 0.5rem;
   border-radius: 8px;
-  color: white;
+  color: var(--on-surface);
   font-weight: 700;
   font-size: 0.8rem;
   min-width: 36px;
   text-align: center;
+  background: var(--chat-username-bg);
 }
 
 /* Ensure user-name is visible inside the online list (avoid global .user-name conflicts) */
 #online-users-list .user-name {
   display: block !important;
   font-weight: 600;
-  color: var(--neutral-800);
+  color: var(--text-color);
 }
 
 /* Follow / plus button styling */
@@ -678,14 +696,26 @@
   width: 28px;
   height: 28px;
   border-radius: 6px;
-  border: 1px solid rgba(0,0,0,0.1);
+  border: 1px solid rgba(0, 0, 0, 0.1);
   background: var(--neutral-100);
-  color: var(--neutral-700);
+  color: var(--muted-text-color);
   cursor: pointer;
   font-weight: 700;
   transition: all 0.12s ease;
 }
-.follow-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 8px rgba(0,0,0,0.06); }
-.follow-btn.following { background: linear-gradient(90deg, var(--primary-color), var(--accent-start)); color: white; border-color: transparent; }
+
+.follow-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.06);
+}
+
+.follow-btn.following {
+  background: linear-gradient(90deg, var(--primary-color), var(--accent-start));
+  color: var(--on-surface);
+  border-color: transparent;
+}
+
 /* place follow button to the right inside the list item */
-#online-users-list .follow-btn { margin-left: auto; }
+#online-users-list .follow-btn {
+  margin-left: auto;
+}

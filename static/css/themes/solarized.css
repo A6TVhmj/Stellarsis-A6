@@ -41,6 +41,22 @@
   --mobile-nav-bg: linear-gradient(135deg, rgba(255,248,230,0.95), rgba(250,244,230,0.9));
   --avatar-bg: var(--site-logo-icon-bg);
   --mobile-nav-shadow: rgba(0,0,0,0.06);
+  /* Theme semantic extensions added for consistency */
+  --muted-text-color: var(--neutral-600);
+  --input-text-color: var(--text-color);
+  --chat-username-bg: var(--primary-100);
+  --profile-title-color: var(--primary-700);
+  --danger-700: var(--danger-500);
+  --success-50: var(--accent-teal-50);
+  --success-100: var(--accent-teal-100);
+  --success-200: var(--accent-teal-200);
+  --success-300: var(--accent-teal-300);
+  --success-400: var(--accent-teal-400);
+  --success-500: var(--accent-teal-500);
+  --success-600: var(--accent-teal-600);
+  --success-700: var(--accent-teal-700);
+  --success-800: var(--accent-teal-800);
+  --success-900: var(--accent-teal-900);
 }
 body {
   background-image: var(--background-image) !important;

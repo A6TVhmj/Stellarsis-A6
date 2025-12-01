@@ -2,6 +2,16 @@
 :root {
   --surface-color: #0b1220;
   --text-color: #e6eef8;
+  --on-surface: var(--text-color);
+  --on-primary: #ffffff;
+  --on-danger: #ffffff;
+  --on-success: #ffffff;
+  /* card/surface contrast tokens */
+  --surface-color: #0f1726;
+  --card-border-color: rgba(255,255,255,0.04);
+  --card-shadow: 0 6px 18px rgba(0,0,0,0.6);
+  --muted-text-color: rgba(230,238,248,0.72) !important;
+  --muted-weak: #98a9bf;
   /* full neutral scale (dark-oriented) */
   --neutral-50: #071029;
   --neutral-100: #0b1220;
@@ -41,9 +51,35 @@
   --mobile-nav-bg: linear-gradient(135deg, rgba(7,16,41,0.95), rgba(11,18,32,0.95));
   --avatar-bg: var(--site-logo-icon-bg);
   --mobile-nav-shadow: rgba(0,0,0,0.5);
+  /* overlays use dark translucency on dark themes (avoid white glare) */
+  --overlay-strong: rgba(0,0,0,0.6);
+  --overlay-almost: rgba(0,0,0,0.55);
+  --overlay-high: rgba(0,0,0,0.48);
+  --overlay-medium: rgba(0,0,0,0.28);
+  --overlay-subtle: rgba(0,0,0,0.12);
+  --overlay-xsubtle: rgba(0,0,0,0.06);
+  --overlay-xxsubtle: rgba(0,0,0,0.03);
 }
 body {
   background-image: var(--background-image) !important;
   background-color: var(--neutral-50) !important;
   color: var(--text-color) !important;
+}
+
+/* Theme semantic extensions added for consistency */
+:root {
+  --input-text-color: var(--text-color);
+  --chat-username-bg: var(--primary-700);
+  --profile-title-color: var(--primary-400);
+  --danger-700: var(--danger-500);
+  --success-50: var(--accent-teal-50);
+  --success-100: var(--accent-teal-100);
+  --success-200: var(--accent-teal-200);
+  --success-300: var(--accent-teal-300);
+  --success-400: var(--accent-teal-400);
+  --success-500: var(--accent-teal-500);
+  --success-600: var(--accent-teal-600);
+  --success-700: var(--accent-teal-700);
+  --success-800: var(--accent-teal-800);
+  --success-900: var(--accent-teal-900);
 }

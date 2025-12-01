@@ -2,6 +2,10 @@
 :root {
   --surface-color: #0f0826;
   --text-color: #efe6ff;
+  --on-surface: var(--text-color);
+  --on-primary: #ffffff;
+  --on-danger: #ffffff;
+  --on-success: #ffffff;
   /* neutral */
   --neutral-50: #0b0716;
   --neutral-100: #120427;
@@ -33,6 +37,10 @@
   --nav-underline-gradient: linear-gradient(90deg, var(--primary-color), var(--accent-start));
   --settings-sidebar-bg: linear-gradient(180deg, rgba(12,6,30,0.88), rgba(30,12,50,0.9));
   --settings-sidebar-border: rgba(60,40,100,0.08);
+  /* surface/card contrast for purple nocturne */
+  --surface-color: #1a0f3a;
+  --card-border-color: rgba(255,255,255,0.05);
+  --card-shadow: 0 6px 18px rgba(0,0,0,0.5);
   --settings-accent-gradient: linear-gradient(180deg, var(--primary-400), var(--primary-700));
   --settings-accent-shadow: rgba(80,40,160,0.08);
   --settings-hover-gradient: linear-gradient(90deg, rgba(139,92,246,0.04), rgba(37,99,235,0.02));
@@ -41,6 +49,33 @@
   --mobile-nav-bg: linear-gradient(135deg, rgba(18,4,39,0.95), rgba(43,15,74,0.95));
   --avatar-bg: var(--site-logo-icon-bg);
   --mobile-nav-shadow: rgba(0,0,0,0.5);
+  /* overlays use dark translucency on nocturne themes to avoid white glare */
+  --overlay-strong: rgba(0,0,0,0.6);
+  --overlay-almost: rgba(0,0,0,0.55);
+  --overlay-high: rgba(0,0,0,0.48);
+  --overlay-medium: rgba(0,0,0,0.28);
+  --overlay-subtle: rgba(0,0,0,0.12);
+  --overlay-xsubtle: rgba(0,0,0,0.06);
+  --overlay-xxsubtle: rgba(0,0,0,0.03);
+}
+
+/* Theme semantic extensions added for consistency */
+:root {
+  --muted-text-color: rgba(239,230,255,0.72) !important;
+  --input-text-color: var(--text-color);
+  --chat-username-bg: var(--primary-100);
+  --profile-title-color: var(--primary-700);
+  --danger-700: var(--danger-500);
+  --success-50: var(--accent-teal-50);
+  --success-100: var(--accent-teal-100);
+  --success-200: var(--accent-teal-200);
+  --success-300: var(--accent-teal-300);
+  --success-400: var(--accent-teal-400);
+  --success-500: var(--accent-teal-500);
+  --success-600: var(--accent-teal-600);
+  --success-700: var(--accent-teal-700);
+  --success-800: var(--accent-teal-800);
+  --success-900: var(--accent-teal-900);
 }
 body {
   background-image: var(--background-image) !important;

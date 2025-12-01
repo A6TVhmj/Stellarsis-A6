@@ -7,7 +7,7 @@
 .admin-container h1 {
   font-size: 2rem;
   margin-bottom: 25px;
-  color: var(--dark-color);
+  color: var(--text-color);
   text-align: center;
 }
 
@@ -30,14 +30,14 @@
 }
 
 .admin-table th {
-  background-color: #f8f9fa;
+  background-color: var(--neutral-100);
   font-weight: 600;
-  color: var(--dark-color);
+  color: var(--text-color);
   font-size: 0.95rem;
 }
 
 .admin-table tr:hover {
-  background-color: #f8f9fa;
+  background-color: transparent;
 }
 
 .admin-table tr:last-child td {
@@ -75,7 +75,7 @@
 /* 兼容旧样式：将 .delete-btn 也映射为删除样式，便于模板统一使用 */
 .delete-btn {
   background-color: var(--btn-danger);
-  color: white;
+  color: var(--on-surface);
 }
 .delete-btn:hover {
   background-color: #c0392b;
@@ -134,7 +134,7 @@
 .search-box button {
   padding: 10px 16px;
   background-color: var(--primary-color);
-  color: white;
+  color: var(--on-surface);
   border: none;
   border-radius: var(--border-radius-sm);
   cursor: pointer;
@@ -167,7 +167,7 @@
   align-items: center;
   gap: 10px;
   font-size: 0.95rem;
-  color: var(--dark-color);
+  color: var(--text-color);
 }
 
 .permission-table {
@@ -229,7 +229,7 @@
 
 .pagination .current {
   background-color: var(--primary-color);
-  color: white;
+  color: var(--on-surface);
   font-weight: 600;
 }
 
@@ -258,17 +258,17 @@
 
 .role-admin {
   background-color: var(--danger-color);
-  color: white;
+  color: var(--on-surface);
 }
 
 .role-user {
   background-color: var(--secondary-color);
-  color: white;
+  color: var(--on-surface);
 }
 
 .role-mod {
   background-color: #9b59b6;
-  color: white;
+  color: var(--on-surface);
 }
 
 /* 文件管理器样式 */

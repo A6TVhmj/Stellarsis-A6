@@ -25,9 +25,9 @@
 .toast {
   min-width: var(--toast-min-width);
   max-width: var(--toast-max-width);
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--overlay-strong);
   backdrop-filter: blur(12px);
-  color: #1e293b;
+  color: var(--neutral-800);
   padding: 1rem 1.25rem;
   border-radius: var(--toast-radius);
   box-shadow: var(--toast-shadow);
@@ -56,19 +56,19 @@
 }
 
 .toast-success {
-  border-color: #10b981;
+  border-color: var(--accent-teal-500);
 }
 
 .toast-error {
-  border-color: #ef4444;
+  border-color: var(--danger-500);
 }
 
 .toast-warning {
-  border-color: #f59e0b;
+  border-color: var(--warning-500);
 }
 
 .toast-info {
-  border-color: #3b82f6;
+  border-color: var(--info-500);
 }
 
 .toast-icon {
@@ -106,7 +106,7 @@
 .toast .toast-close {
   background: transparent;
   border: none;
-  color: #94a3b8;
+  color: var(--neutral-400);
   width: 24px;
   height: 24px;
   border-radius: 50%;
@@ -121,7 +121,7 @@
 
 .toast .toast-close:hover {
   background: rgba(0, 0, 0, 0.05);
-  color: #475569;
+  color: var(--neutral-600);
 }
 
 /* 确认模态样式 */
@@ -143,8 +143,8 @@
 }
 
 .confirm-modal {
-  background: white;
-  color: #1e293b;
+  background: var(--surface-color);
+  color: var(--text-color);
   border-radius: var(--toast-radius);
   max-width: 480px;
   width: 100%;
@@ -165,13 +165,13 @@
   margin: 0 0 0.5rem 0;
   font-size: 1.25rem;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--neutral-800);
 }
 
 .confirm-message {
   margin: 0.25rem 0 1.5rem 0;
   font-size: 1rem;
-  color: #475569;
+  color: var(--neutral-600);
   line-height: 1.5;
 }
 
@@ -180,12 +180,12 @@
   justify-content: flex-end;
   gap: 0.75rem;
   padding-top: 1rem;
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid var(--neutral-100);
 }
 
 .confirm-cancel {
-  color: #64748b;
-  border: 1px solid #e2e8f0;
+  color: var(--neutral-500);
+  border: 1px solid var(--neutral-200);
   padding: 0.5rem 1rem;
   border-radius: 8px;
   font-weight: 500;
@@ -194,13 +194,13 @@
 }
 
 .confirm-cancel:hover {
-  background: #f8fafc;
-  color: #475569;
+  background: var(--neutral-50);
+  color: var(--neutral-600);
 }
 
-.confirm-ok {
-  background: #6366f1;
-  color: white;
+  .confirm-ok {
+  background: var(--primary-600);
+  color: var(--on-surface);
   border: none;
   padding: 0.5rem 1rem;
   border-radius: 8px;
@@ -211,7 +211,7 @@
 }
 
 .confirm-ok:hover {
-  background: #4f46e5;
+  background: var(--primary-700);
   transform: translateY(-1px);
   box-shadow: 0 7px 10px -3px rgba(99, 102, 241, 0.3);
 }

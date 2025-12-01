@@ -22,14 +22,14 @@
   font-size: var(--text-5xl);
   font-weight: 800;
   margin-bottom: var(--spacing-md);
-  color: var(--neutral-900);
+  color: var(--text-color);
   background: linear-gradient(to right, var(--primary-700), var(--primary-600));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .forum-description {
-  color: var(--neutral-600);
+  color: var(--muted-text-color);
   font-size: var(--text-xl);
   max-width: 800px;
   margin: 0 auto;
@@ -45,13 +45,13 @@
   margin: 0 auto var(--spacing-2xl);
   padding: 0.75rem 1.5rem;
   background: linear-gradient(135deg, var(--primary-600), var(--primary-500));
-  color: white;
+  color: var(--on-surface);
   text-decoration: none;
   border-radius: var(--radius-lg);
   font-weight: 600;
   transition: all 0.2s ease;
   box-shadow: 0 4px 6px -1px rgba(99, 102, 241, 0.25);
-  color: white !important;
+  color: var(--on-surface) !important;
 }
 .new-thread-btn:hover {
   transform: translateY(-2px);
@@ -72,7 +72,7 @@
 
 /* 分区卡片 */
 .section-card {
-  background-color: white;
+  background-color: var(--surface-color);
   border-radius: var(--radius-2xl);
   box-shadow: var(--forum-card-shadow);
   overflow: hidden;
@@ -111,7 +111,7 @@
 
 .section-header {
   padding: var(--spacing-lg);
-  background: linear-gradient(135deg, var(--primary-50), white);
+  background: linear-gradient(135deg, var(--neutral-50), var(--neutral-200));
   border-bottom: 1px solid var(--neutral-200);
   display: flex;
   align-items: center;
@@ -122,7 +122,7 @@
   font-size: var(--text-4xl);
   font-weight: 700;
   margin-bottom: var(--spacing-2xl);
-  color: var(--neutral-800);
+  color: var(--text-color);
   text-align: center;
   position: relative;
 }
@@ -148,7 +148,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  color: var(--on-surface);
   flex-shrink: 0;
 }
 .section-title::after {
@@ -185,7 +185,7 @@
 
 .section-description {
   padding: var(--spacing-md) var(--spacing-lg);
-  color: var(--neutral-600);
+  color: var(--muted-text-color);
   line-height: 1.6;
   border-bottom: 1px solid var(--neutral-200);
   margin: 0;
@@ -198,7 +198,7 @@
   padding: var(--spacing-md) var(--spacing-lg);
   display: flex;
   justify-content: space-between;
-  color: var(--neutral-600);
+  color: var(--muted-text-color);
   font-size: var(--text-sm);
 }
 
@@ -210,7 +210,7 @@
 .section-stat-value {
   font-size: var(--text-lg);
   font-weight: 700;
-  color: var(--neutral-800);
+  color: var(--text-color);
 }
 
 .section-stat-label {
@@ -251,7 +251,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  color: var(--on-surface);
   font-weight: 600;
   flex-shrink: 0;
 }
@@ -266,7 +266,7 @@
 }
 
 .thread-title a {
-  color: var(--neutral-800);
+  color: var(--text-color);
   text-decoration: none;
   font-weight: 600;
   transition: color 0.2s ease;
@@ -284,7 +284,7 @@
 .thread-meta {
   display: flex;
   font-size: var(--text-sm);
-  color: var(--neutral-500);
+  color: var(--muted-weak);
   margin-bottom: var(--spacing-sm);
   gap: var(--spacing-md);
   flex-wrap: wrap;
@@ -297,7 +297,7 @@
 }
 
 .thread-content-preview {
-  color: var(--neutral-700);
+  color: var(--muted-text-color);
   line-height: 1.6;
   font-size: var(--text-sm);
   display: -webkit-box;
@@ -342,7 +342,7 @@
   font-size: var(--text-4xl);
   font-weight: 800;
   margin: 0 0 var(--spacing-md) 0;
-  color: var(--neutral-900);
+  color: var(--text-color);
   line-height: 1.2;
 }
 
@@ -361,7 +361,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  color: var(--on-surface);
   font-weight: 600;
 }
 
@@ -373,18 +373,18 @@
 .thread-username {
   font-weight: 600;
   font-size: var(--text-lg);
-  color: var(--neutral-800);
+  color: var(--text-color);
 }
 
 .thread-perm {
   font-size: var(--text-sm);
-  color: var(--neutral-500);
+  color: var(--muted-weak);
 }
 
 .thread-meta {
   display: flex;
   gap: var(--spacing-lg);
-  color: var(--neutral-500);
+  color: var(--muted-weak);
   font-size: var(--text-sm);
 }
 
@@ -414,7 +414,7 @@
 .replies h2 {
   font-size: var(--text-3xl);
   margin-bottom: var(--spacing-xl);
-  color: var(--neutral-800);
+  color: var(--text-color);
   display: flex;
   align-items: center;
   gap: var(--spacing-md);
@@ -446,7 +446,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  color: var(--on-surface);
   font-weight: 600;
 }
 
@@ -457,18 +457,18 @@
 
 .reply-username {
   font-weight: 600;
-  color: var(--neutral-800);
+  color: var(--text-color);
 }
 
 .reply-perm {
   font-size: var(--text-sm);
-  color: var(--neutral-500);
+  color: var(--muted-weak);
 }
 
 .reply-meta {
   display: flex;
   gap: var(--spacing-md);
-  color: var(--neutral-500);
+  color: var(--muted-weak);
   font-size: var(--text-sm);
 }
 
@@ -490,7 +490,7 @@
   max-width: 900px;
   margin: var(--spacing-2xl) auto;
   padding: var(--spacing-xl);
-  background-color: white;
+  background-color: var(--surface-color);
   border-radius: var(--radius-2xl);
   box-shadow: var(--forum-card-shadow);
   border: 1px solid var(--neutral-200);
@@ -499,7 +499,7 @@
 .new-post-container h2,
 .reply-form-container h2 {
   margin-bottom: var(--spacing-xl);
-  color: var(--neutral-800);
+  color: var(--text-color);
   font-size: var(--text-3xl);
   font-weight: 700;
   display: flex;
@@ -517,7 +517,7 @@
   display: block;
   margin-bottom: var(--spacing-sm);
   font-weight: 600;
-  color: var(--neutral-800);
+  color: var(--muted-text-color);
   font-size: var(--text-lg);
 }
 
@@ -549,7 +549,7 @@
 .preview-title {
   font-weight: 600;
   margin-bottom: var(--spacing-md);
-  color: var(--neutral-700);
+  color: var(--text-color);
   font-size: var(--text-lg);
   display: flex;
   align-items: center;
@@ -573,7 +573,7 @@
   gap: var(--spacing-xs);
   padding: 0.75rem 2rem;
   background: linear-gradient(135deg, var(--primary-600), var(--primary-500));
-  color: white;
+  color: var(--on-surface);
   border: none;
   border-radius: var(--radius-lg);
   font-weight: 600;
@@ -651,7 +651,7 @@
 
 .section-header .section-title {
   font-size: var(--text-4xl);
-  color: var(--neutral-800);
+  color: var(--text-color);
   margin-bottom: var(--spacing-md);
   display: flex;
   align-items: center;
@@ -662,7 +662,7 @@
 
 
 .section-header .section-description {
-  color: var(--neutral-600);
+  color: var(--muted-text-color);
   font-size: var(--text-xl);
   line-height: 1.6;
   max-width: 700px;

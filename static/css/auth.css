@@ -10,7 +10,7 @@
 .auth-container h2 {
   text-align: center;
   margin-bottom: 25px;
-  color: var(--dark-color);
+  color: var(--text-color);
 }
 
 .form-group {
@@ -34,7 +34,7 @@
   width: 100%;
   padding: 12px;
   background-color: var(--primary-color);
-  color: white;
+  color: var(--on-surface);
   border: none;
   border-radius: var(--border-radius-sm);
   font-size: 1rem;
@@ -51,7 +51,7 @@
 .register-link {
   text-align: center;
   margin-top: 20px;
-  color: #6c757d;
+  color: var(--neutral-500);
 }
 
 .register-link a {
@@ -76,11 +76,11 @@
 
 .profile-container h2 {
   margin-bottom: 25px;
-  color: var(--dark-color);
+  color: var(--profile-title-color);
 }
 
 .current-settings {
-  background-color: #f8f9fa;
+  background-color: var(--neutral-50);
   padding: 20px;
   border-radius: var(--border-radius-sm);
   margin-bottom: 30px;
@@ -100,7 +100,7 @@
   height: 40px;
   border-radius: 50%;
   margin-left: 15px;
-  border: 2px solid #ddd;
+  border: 2px solid var(--neutral-200);
   display: inline-block;
   vertical-align: middle;
 }
@@ -118,11 +118,11 @@
 .password-container h2 {
   text-align: center;
   margin-bottom: 25px;
-  color: var(--dark-color);
+  color: var(--text-color);
 }
 
 .requirements {
-  background-color: #f8f9fa;
+  background-color: var(--neutral-50);
   padding: 15px;
   border-radius: var(--border-radius-sm);
   margin-bottom: 25px;
