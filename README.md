@@ -93,3 +93,40 @@ Stellarsis is a feature-rich real-time chat and forum system that combines chat 
 ## 许可证 / License
 
 MIT License
+
+## 网站客户端
+
+项目还包含一个基于ttkbootstrap和requests实现的桌面客户端，提供了更友好的用户界面。
+
+### 功能特性
+
+- **登录/登出**: 支持用户认证
+- **聊天室**: 支持多房间聊天，查看历史消息，发送消息
+- **论坛**: 支持浏览和发布帖子
+- **用户管理**: 支持修改密码、关注用户、查看关注列表
+- **管理员功能**: 系统信息查看、用户管理等
+
+### 安装依赖
+
+```bash
+pip install ttkbootstrap requests
+```
+
+如果在Linux系统上运行，可能需要安装tkinter支持：
+
+```bash
+# Ubuntu/Debian
+sudo apt-get install tk-dev tcl-dev
+```
+
+### 运行客户端
+
+```bash
+python website_client.py
+```
+
+### 使用说明
+
+1. 启动客户端后，在登录界面输入用户名、密码和服务器地址
+2. 登录成功后，可以使用聊天室和论坛功能
+3. 通过菜单栏可以访问用户管理和管理员功能
