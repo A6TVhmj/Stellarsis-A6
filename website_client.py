@@ -204,7 +204,10 @@ class WebsiteClient:
         
         ttk.Label(forum_top_frame, text="分区:").pack(side=LEFT)
         self.section_var = tk.StringVar(value="1")
-        section_combo = ttk.Combobox(forum_top_frame, textvariable=self.section_var, values=["1", "2", "3"], state="readonly", width=10)
+        # 显示论坛分区名称和介绍
+        section_combo = ttk.Combobox(forum_top_frame, textvariable=self.section_var, 
+                                     values=["1-综合讨论区", "2-技术交流区", "3-休闲娱乐区"], 
+                                     state="readonly", width=15)
         section_combo.pack(side=LEFT, padx=5)
         section_combo.bind('<<ComboboxSelected>>', self.load_forum_threads)
         
@@ -251,22 +254,40 @@ class WebsiteClient:
                 
                 for i, msg in enumerate(data.get('messages', [])):
                     timestamp = datetime.fromisoformat(msg['timestamp'].replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S')
-                    formatted_msg = f"[{timestamp}] {msg['username']}: {msg['content']}"
                     
-                    # 创建消息标签
+                    # 创建消息框架
                     msg_frame = ttk.Frame(self.chat_container)
-                    msg_frame.pack(fill=X, padx=5, pady=2)
                     
-                    msg_label = ttk.Label(msg_frame, text=formatted_msg, font=("微软雅黑", 10), 
-                                          relief="raised", padding=5, anchor="w")
-                    msg_label.pack(fill=X)
-                    
-                    # 如果是当前用户的消息，设置不同样式
+                    # 根据是否是当前用户的消息来确定对齐方式
                     if msg['username'] == self.current_user:
-                        msg_label.configure(bootstyle="primary")
+                        # 当前用户消息居右显示
+                        msg_frame.pack(fill=X, padx=50, pady=2, anchor="e")
+                        msg_frame.configure(bootstyle="success")  # 绿色背景
+                    else:
+                        # 其他用户消息居左显示
+                        msg_frame.pack(fill=X, padx=50, pady=2, anchor="w")
+                        msg_frame.configure(bootstyle="info")  # 蓝色背景
+                    
+                    # 创建名牌标签 [用户名]
+                    name_label = ttk.Label(msg_frame, text=f"【{msg['username']}】", 
+                                           font=("微软雅黑", 10, "bold"), 
+                                           anchor="w")
+                    name_label.pack(fill=X, padx=5, pady=(2, 0))
+                    
+                    # 创建时间戳标签
+                    time_label = ttk.Label(msg_frame, text=timestamp, 
+                                           font=("微软雅黑", 8), 
+                                           anchor="w", foreground="gray")
+                    time_label.pack(fill=X, padx=5, pady=(0, 2))
+                    
+                    # 创建内容标签
+                    content_label = ttk.Label(msg_frame, text=msg['content'], 
+                                              font=("微软雅黑", 10), 
+                                              anchor="w", wraplength=400)
+                    content_label.pack(fill=X, padx=5, pady=(0, 2))
                     
                     # 记录消息ID与组件的映射
-                    self.message_widgets_map[msg['id']] = (msg_frame, msg_label)
+                    self.message_widgets_map[msg['id']] = (msg_frame, name_label, time_label, content_label)
                     
                 # 滚动到底部
                 self.chat_container.update_idletasks()
@@ -405,28 +426,53 @@ class WebsiteClient:
                 self.add_thread_to_container(thread)
 
     def add_thread_to_container(self, thread):
-        """将主题添加到容器中"""
+        """将主题添加到容器中 - 使用表格式布局"""
         # 创建主题框架
         thread_frame = ttk.Frame(self.thread_container)
         thread_frame.pack(fill=X, padx=5, pady=2)
         
-        # 创建主题标签
-        thread_info = f"{thread['title']} (作者: {thread['author']}, 回复: {thread.get('replies', 0)})"
-        thread_label = ttk.Label(thread_frame, text=thread_info, font=("微软雅黑", 10), 
-                                 relief="raised", padding=8, anchor="w")
-        thread_label.pack(fill=X, padx=2, pady=2)
+        # 创建表格式布局
+        # 作者列
+        author_label = ttk.Label(thread_frame, text=thread['author'], font=("微软雅黑", 10), 
+                                 relief="groove", padding=6, width=15, anchor="center")
+        author_label.grid(row=0, column=0, sticky="ew", padx=(0, 2))
         
-        # 绑定双击事件到标签
-        thread_label.bind('<Double-Button-1>', lambda e, t=thread: self.view_thread_direct(t))
+        # 标题列
+        title_label = ttk.Label(thread_frame, text=thread['title'], font=("微软雅黑", 10), 
+                                relief="groove", padding=6, anchor="w")
+        title_label.grid(row=0, column=1, sticky="ew", padx=2)
+        
+        # 回复数列
+        replies_label = ttk.Label(thread_frame, text=f"回复: {thread.get('replies', 0)}", 
+                                  font=("微软雅黑", 10), relief="groove", padding=6, 
+                                  width=10, anchor="center")
+        replies_label.grid(row=0, column=2, sticky="ew", padx=(2, 0))
+        
+        # 配置列权重，使标题列扩展
+        thread_frame.columnconfigure(1, weight=1)
+        
+        # 绑定双击事件到整个框架
+        thread_frame.bind('<Double-Button-1>', lambda e, t=thread: self.view_thread_direct(t))
+        
+        # 为每个组件绑定双击事件（以防单击组件时无法触发）
+        author_label.bind('<Double-Button-1>', lambda e, t=thread: self.view_thread_direct(t))
+        title_label.bind('<Double-Button-1>', lambda e, t=thread: self.view_thread_direct(t))
+        replies_label.bind('<Double-Button-1>', lambda e, t=thread: self.view_thread_direct(t))
         
         # 鼠标悬停效果
         def on_enter(e):
-            thread_label.configure(bootstyle="primary")
+            author_label.configure(bootstyle="primary")
+            title_label.configure(bootstyle="primary")
+            replies_label.configure(bootstyle="primary")
         def on_leave(e):
-            thread_label.configure(bootstyle="default")
+            author_label.configure(bootstyle="default")
+            title_label.configure(bootstyle="default")
+            replies_label.configure(bootstyle="default")
         
-        thread_label.bind("<Enter>", on_enter)
-        thread_label.bind("<Leave>", on_leave)
+        # 为所有组件绑定悬停事件
+        for widget in [thread_frame, author_label, title_label, replies_label]:
+            widget.bind("<Enter>", on_enter)
+            widget.bind("<Leave>", on_leave)
     
     def view_thread(self, event):
         """查看主题帖 - 处理双击事件但不执行操作，因为现在直接在add_thread_to_container中绑定事件"""
@@ -600,17 +646,34 @@ class WebsiteClient:
         """将回复添加到容器中"""
         # 创建回复框架
         reply_frame = ttk.Frame(container)
-        reply_frame.pack(fill=X, padx=5, pady=2)
         
-        # 创建回复标签
-        reply_info = f"[{reply['timestamp']}] {reply['author']}: {reply['content']}"
-        reply_label = ttk.Label(reply_frame, text=reply_info, font=("微软雅黑", 9), 
-                                relief="groove", padding=6, anchor="w", wraplength=600)
-        reply_label.pack(fill=X, padx=2, pady=2)
-        
-        # 如果是当前用户的回复，设置不同样式
+        # 根据是否是当前用户的消息来确定对齐方式
         if reply['author'] == self.current_user:
-            reply_label.configure(bootstyle="primary")
+            # 当前用户回复居右显示
+            reply_frame.pack(fill=X, padx=30, pady=2, anchor="e")
+            reply_frame.configure(bootstyle="success")  # 绿色背景
+        else:
+            # 其他用户回复居左显示
+            reply_frame.pack(fill=X, padx=30, pady=2, anchor="w")
+            reply_frame.configure(bootstyle="info")  # 蓝色背景
+        
+        # 创建名牌标签 [用户名]
+        name_label = ttk.Label(reply_frame, text=f"【{reply['author']}】", 
+                               font=("微软雅黑", 10, "bold"), 
+                               anchor="w")
+        name_label.pack(fill=X, padx=5, pady=(2, 0))
+        
+        # 创建时间戳标签
+        time_label = ttk.Label(reply_frame, text=reply['timestamp'], 
+                               font=("微软雅黑", 8), 
+                               anchor="w", foreground="gray")
+        time_label.pack(fill=X, padx=5, pady=(0, 2))
+        
+        # 创建内容标签
+        content_label = ttk.Label(reply_frame, text=reply['content'], 
+                                  font=("微软雅黑", 10), 
+                                  anchor="w", wraplength=400)
+        content_label.pack(fill=X, padx=5, pady=(0, 2))
     
     def open_post_thread(self):
         """打开发布新帖窗口"""
@@ -854,14 +917,26 @@ class WebsiteClient:
         user_mgmt_window.title("用户管理")
         user_mgmt_window.geometry("500x400")
         
-        # 用户列表
-        listbox = tk.Listbox(user_mgmt_window)
-        listbox.pack(fill=BOTH, expand=True, padx=10, pady=10)
+        # 使用ScrolledFrame替代Listbox
+        user_scroll_frame = ScrolledFrame(user_mgmt_window, autohide=True)
+        user_scroll_frame.pack(fill=BOTH, expand=True, padx=10, pady=10)
+        user_scroll_frame.bind('<Configure>', lambda e: user_scroll_frame.configure(scrollregion=user_scroll_frame.bbox('all')))
+        
+        # 创建用户容器
+        self.user_container = ttk.Frame(user_scroll_frame)
+        self.user_container.pack(fill=BOTH, expand=True, padx=5, pady=5)
+        user_scroll_frame.configure(bootstyle="default")
         
         # 模拟添加一些用户
         users = ["admin", "user1", "moderator", "guest"]
         for user in users:
-            listbox.insert(tk.END, user)
+            # 创建用户标签
+            user_frame = ttk.Frame(self.user_container)
+            user_frame.pack(fill=X, padx=5, pady=2)
+            
+            user_label = ttk.Label(user_frame, text=user, font=("微软雅黑", 10), 
+                                   relief="raised", padding=5, anchor="w")
+            user_label.pack(fill=X, padx=2, pady=2)
     
     def update_online_count(self):
         """更新在线用户数"""
