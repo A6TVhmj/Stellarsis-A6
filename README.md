@@ -71,19 +71,35 @@ Stellarsis is a feature-rich real-time chat and forum system that combines chat 
 - **前端**: HTML/CSS/JavaScript
 - **实时消息**: WebSocket (降级到轮询)
 
+## 管理与维护 / Admin & Maintenance
+
+- 管理面板新增：
+   - 一键下载项目根目录压缩包（`/down`，管理员）。
+   - 下载 SQLite 数据库文件（`/downdb`，当使用 SQLite 时，管理员可下载）。
+   - 管理员可触发按文件重新统计上传大小（按钮调用 `/api/admin/recount-file-size`）。
+
+- 开发者调试：前端提供一个控制台入口用于模拟 WebSocket 不可用并启用轮询降级（在浏览器控制台调用开发函数以切换）。
+
 ## 安装与部署 / Installation and Deployment
+
+请从[Release页面](https://github.com/w1010tdev/Stellarsis/releases/latest)下载最新稳定版本用于开发部署。
+
+Main Branch也可以使用，但是不保证Bug解决
 
 1. 安装依赖：
    ```bash
-   pip install -r requirements.txt
+   pip install -r requirements.txt -i https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple
+   # 如果您被清华站点爆炸了，请自行去掉-i https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple
+   # 如果您是在因为不可抗力无法自行安装，提供下载：https://pan.huang1111.cn/s/zMm6ZcM   自行访问Scripts内的activate.bat
    ```
+2. 请根据需要，修改`app.py`的密码加密方式和`config.py`
 
-2. 运行应用：
+3. 运行应用：
    ```bash
    python app.py
    ```
 
-3. 访问 `http://localhost:5000`
+4. 访问 `http://localhost:5000`， 如果您需要分享，请访问：`http://YOUR-IP:5000`
 
 ## 默认账户 / Default Account
 
@@ -93,3 +109,14 @@ Stellarsis is a feature-rich real-time chat and forum system that combines chat 
 ## 许可证 / License
 
 MIT License
+
+## 上传图片 / Image Upload
+系统默认启用了用户图片上传功能，配置可通过 `config.py` 修改：
+
+- `UPLOAD_FOLDER`：文件保存目录，默认 `static/uploads`。
+- `ALLOWED_IMAGE_EXTENSIONS`：允许的图片扩展名列表，默认 `{'png', 'jpg', 'jpeg', 'gif', 'webp'}`。
+- `IMAGE_MAX_SIZE`：单张图片最大大小（字节），默认值为 5MB。
+
+前端上传接口： `POST /api/upload/image`（multipart/form-data, 字段 `file`），返回 JSON 包含 `url` 和 `markdown` 字段，便于复制与插入。
+
+注意：为支持内存受限的部署（例如 2GB 内存）且用户可能上传非常大的图片集合，服务端已实现流式写入：上传文件直接保存到磁盘后再做文件头检测与入库，避免将整个文件读入内存。

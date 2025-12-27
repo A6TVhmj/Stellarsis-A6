@@ -30,11 +30,12 @@ document.addEventListener('DOMContentLoaded', function() {
         // 等待渲染系统就绪
         waitForRenderReady(function() {
             try {
-                element.innerHTML = window.renderContent(content);
-            } catch (e) {
-                console.error('内容渲染失败:', e);
-                element.innerHTML = '<div class="render-error">' + escapeHtml(content) + '</div>';
-            }
+                    element.innerHTML = window.renderContent(content);
+                    if (typeof window.postProcessRendered === 'function') window.postProcessRendered(element);
+                } catch (e) {
+                    console.error('内容渲染失败:', e);
+                    element.innerHTML = '<div class="render-error">' + escapeHtml(content) + '</div>';
+                }
         });
     }
     
@@ -44,6 +45,18 @@ document.addEventListener('DOMContentLoaded', function() {
         const contentInput = replyForm.querySelector('textarea[name="content"]');
         
         if (!submitButton || !contentInput) return;
+        
+        // 初始化时调整高度
+        if (typeof window.autoResizeTextarea === 'function') {
+            window.autoResizeTextarea(contentInput);
+        }
+        
+        // 监听输入事件以调整高度
+        contentInput.addEventListener('input', function() {
+            if (typeof window.autoResizeTextarea === 'function') {
+                window.autoResizeTextarea(this);
+            }
+        });
         
         submitButton.addEventListener('click', function(e) {
             e.preventDefault();
@@ -87,6 +100,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     // 重置表单
                     contentInput.value = '';
+                    if (typeof window.autoResizeTextarea === 'function') {
+                        window.autoResizeTextarea(contentInput); // 重置高度
+                    }
                     submitButton.disabled = false;
                     submitButton.textContent = '回复';
                 } else {
@@ -139,6 +155,7 @@ document.addEventListener('DOMContentLoaded', function() {
         waitForRenderReady(function() {
             try {
                 contentElement.innerHTML = window.renderContent(replyData.content);
+                if (typeof window.postProcessRendered === 'function') window.postProcessRendered(contentElement);
             } catch (e) {
                 console.error('回复渲染失败:', e);
                 contentElement.innerHTML = '<div class="render-error">' + escapeHtml(replyData.content) + '</div>';
@@ -190,8 +207,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!unsafe) return '';
         return unsafe
             .replace(/&/g, "&amp;")
-            .replace(/</g, "<")
-            .replace(/>/g, ">")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
             .replace(/"/g, "&quot;")
             .replace(/'/g, "&#039;");
     }

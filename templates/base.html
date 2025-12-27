@@ -27,12 +27,6 @@
                         '--neutral-50': '#f8fafc',
                         '--background-image': 'linear-gradient(135deg,#f0f4ff 0%,#e6e9ff 100%)'
                     },
-                    dark: {
-                        '--surface-color': '#0b1220',
-                        '--text-color': '#e6eef8',
-                        '--neutral-50': '#071029',
-                        '--background-image': 'linear-gradient(135deg,#071029 0%,#0b1220 100%)'
-                    },
                     solarized: {
                         '--surface-color': '#fdf6e3',
                         '--text-color': '#073642',
@@ -77,12 +71,12 @@
 <body class="page-enter">
     <header>
         <div class="container">
-            <h1><a href="/">群星议会</a></h1>
-            <button class="menu-toggle" id="menu-toggle">
-                <span></span>
-            </button>
-            <nav id="main-nav">
+            <h1><a href="/" id="global_title">群星议会</a></h1>
+            <!-- 只在移动端显示的进入按钮 -->
+            <button class="entry-button" id="entry-button">菜单</button>
+            <nav id="main-nav" class="mobile-nav">
                 <ul id="main-menu">
+                    <li><a href="/">首页</a></li>
                     <li><a href="{{ url_for('chat_index') }}">即时聊天</a></li>
                     <li><a href="{{ url_for('forum_index') }}">贴吧</a></li>
                     {% if current_user.is_authenticated %}
@@ -97,8 +91,6 @@
             </nav>
         </div>
     </header>
-    <!-- backdrop should be a body-level overlay so it can catch clicks outside header/nav reliably -->
-    <div class="nav-backdrop" id="nav-backdrop"></div>
     <main class="container">
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
@@ -113,52 +105,163 @@
     </main>
     <footer>
         <div class="container">
-            <p>群星议会 &copy; 2025 | 在线人数: <span id="global-online-count">加载中...</span></p>
+            <p>群星议会 &copy; 2025 | 在线人数: <span id="global-online-count">加载中...</span> |
+            <a href="https://github.com/w1010tdev/stellarsis" target="_blank" style="display: inline-flex; align-items: center; text-decoration: none;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style="margin-right: 4px;">
+                    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+                </svg>
+                GitHub
+            </a>
+            </p>
         </div>
     </footer>
     {% block scripts %}
-        <script src="{{ url_for('static', filename='js/theme-switcher.js') }}"></script>
-        <script src="{{ url_for('static', filename='js/command-palette.js') }}"></script>
-        <script src="{{ url_for('static', filename='js/ui.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/theme-switcher.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/command-palette.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/ui.js') }}"></script>
+    <!-- highlight.js CSS & JS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/default.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
     <!-- 汉堡菜单JS交互 -->
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            const menuToggle = document.getElementById('menu-toggle');
-            const mainNav = document.getElementById('main-nav');
-            const navBackdrop = document.getElementById('nav-backdrop');
-            const mainMenu = document.getElementById('main-menu');
+            const entryButton = document.getElementById('entry-button');
 
-            if (menuToggle && mainNav && navBackdrop) {
-                const toggleMenu = () => {
-                    const isOpen = mainNav.classList.contains('show');
-                    mainNav.classList.toggle('show', !isOpen);
-                    navBackdrop.classList.toggle('show', !isOpen);
-                    menuToggle.classList.toggle('open', !isOpen);
-                    document.body.style.overflow = !isOpen ? 'hidden' : '';
-                };
+            // 绑定进入按钮点击事件
+            if (entryButton) {
+                entryButton.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
 
-                menuToggle.addEventListener('click', toggleMenu);
-                navBackdrop.addEventListener('click', toggleMenu);
+                    // 仅在移动端处理
+                    if (window.innerWidth > 768) return;
 
-                // 菜单项点击后关闭菜单(移动端)
-                const menuLinks = mainMenu.querySelectorAll('a');
-                menuLinks.forEach(link => {
-                    link.addEventListener('click', function () {
-                        if (window.innerWidth <= 768) {
-                            mainNav.classList.remove('show');
-                            navBackdrop.classList.remove('show');
-                            menuToggle.classList.remove('open');
-                            document.body.style.overflow = '';
-                        }
-                    });
+                    // 动态创建并显示菜单
+                    createAndShowMobileMenu();
                 });
+            }
 
-                // 窗口大小变化时关闭菜单
+            function createAndShowMobileMenu() {
+                // 如果菜单已经存在，则不再重复创建
+                if (document.getElementById('menu-toggle')) return;
+
+                // 1. 创建汉堡菜单按钮
+                const menuToggle = document.createElement('button');
+                menuToggle.className = 'menu-toggle';
+                menuToggle.id = 'menu-toggle';
+                menuToggle.innerHTML = '<span></span>';
+
+                // 2. 创建导航菜单（如果不存在）
+                let mainNav = document.getElementById('main-nav');
+                if (!mainNav) {
+                    mainNav = document.createElement('nav');
+                    mainNav.id = 'main-nav';
+                    mainNav.className = 'mobile-nav';
+                    
+                    const menuUl = document.createElement('ul');
+                    menuUl.id = 'main-menu';
+                    
+                    // 添加菜单项
+                    const menuItems = [];
+                    menuItems.push({ text: '首页', href: '/' });
+                    menuItems.push({ text: '即时聊天', href: '{{ url_for("chat_index") }}' });
+                    menuItems.push({ text: '贴吧', href: '{{ url_for("forum_index") }}' });
+                    {% if current_user.is_authenticated %}
+                    menuItems.push({ text: '设置', href: '{{ url_for("settings_index") }}' });
+                    {% else %}
+                    menuItems.push({ text: '登录', href: '{{ url_for("login") }}' });
+                    {% endif %}
+                    {% if current_user.is_authenticated and current_user.is_admin() %}
+                    menuItems.push({ text: '管理面板', href: '{{ url_for("admin_index") }}' });
+                    {% endif %}
+                    
+                    menuItems.forEach(item => {
+                        const li = document.createElement('li');
+                        const a = document.createElement('a');
+                        a.href = item.href;
+                        a.textContent = item.text;
+                        li.appendChild(a);
+                        menuUl.appendChild(li);
+                    });
+                    
+                    mainNav.appendChild(menuUl);
+                }
+
+                // 3. 创建背景覆盖层
+                const navBackdrop = document.createElement('div');
+                navBackdrop.className = 'nav-backdrop';
+                navBackdrop.id = 'nav-backdrop';
+
+                // 4. 将元素添加到DOM中
+                document.body.appendChild(mainNav);
+                document.body.appendChild(navBackdrop);
+                
+                const headerContainer = document.querySelector('header .container');
+                headerContainer.insertBefore(menuToggle, document.querySelector('.entry-button'));
+
+                // 5. 绑定菜单事件
+                bindMenuEvents();
+
+                // 6. 显示菜单
+                setTimeout(() => {
+                    mainNav.classList.add('show');
+                    navBackdrop.classList.add('show');
+                    menuToggle.classList.add('open');
+                    document.body.style.overflow = 'hidden';
+                }, 30);
+            }
+
+            function bindMenuEvents() {
+                const menuToggle = document.getElementById('menu-toggle');
+                const mainNav = document.getElementById('main-nav');
+                const navBackdrop = document.getElementById('nav-backdrop');
+
+                if (!menuToggle || !mainNav || !navBackdrop) return;
+
+                // 关闭菜单函数
+                function closeMenu() {
+                    mainNav.classList.remove('show');
+                    navBackdrop.classList.remove('show');
+                    menuToggle.classList.remove('open');
+                    document.body.style.overflow = '';
+
+                    // 延迟删除元素，确保动画完成
+                    setTimeout(() => {
+                        if (menuToggle && menuToggle.parentNode) menuToggle.remove();
+                        if (mainNav && mainNav.parentNode) mainNav.remove();
+                        if (navBackdrop && navBackdrop.parentNode) navBackdrop.remove();
+                    }, 300);
+                }
+
+                // 绑定点击事件
+                menuToggle.addEventListener('click', closeMenu);
+                navBackdrop.addEventListener('click', closeMenu);
+
+                // 菜单项点击后关闭菜单
+                const mainMenu = document.getElementById('main-menu');
+                if (mainMenu) {
+                    const menuLinks = mainMenu.querySelectorAll('a');
+                    menuLinks.forEach(link => {
+                        link.addEventListener('click', function () {
+                            if (window.innerWidth <= 768) {
+                                closeMenu();
+                            }
+                        });
+                    });
+                }
+
+                // 窗口大小变化处理
                 window.addEventListener('resize', function () {
-                    if (window.innerWidth > 768 && mainNav.classList.contains('show')) {
-                        mainNav.classList.remove('show');
-                        navBackdrop.classList.remove('show');
-                        menuToggle.classList.remove('open');
+                    if (window.innerWidth > 768) {
+                        // 桌面端：移除动态元素
+                        const toggleEl = document.getElementById('menu-toggle');
+                        const navEl = document.getElementById('main-nav');
+                        const backdropEl = document.getElementById('nav-backdrop');
+                        
+                        if (toggleEl) toggleEl.remove();
+                        if (navEl) navEl.remove();
+                        if (backdropEl) backdropEl.remove();
+                        
                         document.body.style.overflow = '';
                     }
                 });
@@ -278,7 +381,20 @@
             loadScript('https://fastly.jsdelivr.net/npm/marked@4.0.0/marked.min.js', function (err) {
                 if (err) return callback(err);
                 // 然后加载KaTeX JS
-                loadScript('https://fastly.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.js', callback);
+                loadScript('https://fastly.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.js', function (err2) {
+                    if (err2) return callback(err2);
+                    // 也尝试提前加载 highlight.js（样式和脚本），以便 marked 能在渲染时高亮
+                    try {
+                        loadStylesheet('https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/default.min.css');
+                        loadScript('https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js', function () {
+                            // 已加载所有渲染相关第三方库
+                            callback();
+                        });
+                    } catch (e) {
+                        // 若加载 highlight 失败也不阻塞渲染
+                        callback();
+                    }
+                });
             });
         }
         // HTML转义函数
@@ -295,7 +411,32 @@
         window.renderContent = function (content) {
             try {
                 // 1. 先用marked渲染Markdown
+                // Configure marked to use highlight.js if available
+                try {
+                    if (typeof marked !== 'undefined') {
+                        marked.setOptions({
+                            gfm: true,
+                            breaks: false,
+                            highlight: function (code, lang) {
+                                try {
+                                    if (typeof hljs !== 'undefined' && hljs) {
+                                        if (lang) {
+                                            try { return hljs.highlight(code, { language: lang }).value; } catch (e) { return hljs.highlightAuto(code).value; }
+                                        }
+                                        return hljs.highlightAuto(code).value;
+                                    }
+                                } catch (ee) { }
+                                return escapeHtml(code);
+                            }
+                        });
+                    }
+                } catch (e) { }
+
                 let html = marked.parse(content);
+                // 处理 @quote{123} 占位符为可被后处理识别的容器
+                html = html.replace(/@quote\{(\d+)\}/g, function (m, id) {
+                    return '<div class="quote" data-quote-id="' + id + '">引用的消息: #' + id + '（加载中）</div>';
+                });
                 // 2. 处理行内LaTeX: $...$
                 html = html.replace(/\$([^\$]+)\$/g, function (match, p1) {
                     try {
@@ -372,16 +513,141 @@
             var event = new Event('renderReady');
             document.dispatchEvent(event);
         });
+        // 在渲染后对插入到 DOM 的内容进行后处理（如代码高亮）
+        window.postProcessRendered = function (container, depth = 0) {
+            // 限制递归深度，防止无限递归
+            if (depth > 10) {
+                console.warn('Quote递归深度超过限制，停止进一步处理');
+                return;
+            }
+            try {
+                if (!container || !(container instanceof Element)) return;
+                function applyHighlight() {
+                    try {
+                        if (typeof hljs !== 'undefined' && hljs && typeof hljs.highlightElement === 'function') {
+                            container.querySelectorAll('pre code').forEach(function (block) {
+                                try { hljs.highlightElement(block); } catch (e) { /* ignore per-block errors */ }
+                            });
+                        }
+                    } catch (e) {
+                        console.error('代码高亮应用失败:', e);
+                    }
+                }
+
+                // 如果 hljs 已经加载则直接应用，否则尝试动态加载（同时加载样式）
+                if (typeof hljs !== 'undefined' && hljs && typeof hljs.highlightElement === 'function') {
+                    applyHighlight();
+                } else {
+                    // 加载 highlight.js 样式与脚本（若尚未加载）
+                    try {
+                        loadStylesheet('https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/default.min.css');
+                        loadScript('https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js', function () {
+                            // 有些高亮包需要注册语言，默认 core 包可以自动检测
+                            setTimeout(applyHighlight, 30);
+                        });
+                    } catch (e) {
+                        console.error('动态加载 highlight.js 失败:', e);
+                    }
+                }
+                // 处理引用占位符：尝试找到已加载的回复节点或通过接口拉取
+                try {
+                    const quoteElements = container.querySelectorAll && container.querySelectorAll('.quote');
+                    if (quoteElements && quoteElements.length > 0) {
+                        let quoteCount = quoteElements.length;
+                        const originalQuoteCount = quoteCount;
+                        
+                        quoteElements.forEach(function (qel) {
+                            try {
+                                const qid = qel.dataset && qel.dataset.quoteId;
+                                if (!qid) {
+                                    quoteCount--;
+                                    return;
+                                }
+                                // 通过 API 拉取该回复（降级加载）
+                                let apiaddr = '/api/chat/message/';
+                                fetch(apiaddr + qid)
+                                    .then(r => { if (!r.ok) throw new Error('加载引用失败'); return r.json(); })
+                                    .then(data => {
+                                        if (data && data.success && data.message) {
+                                            const reply = data.message;
+                                            const uname = reply.nickname || reply.username || ('用户' + (reply.user_id || ''));
+                                            const rendered = (typeof window.renderContent === 'function') ? window.renderContent(reply.content || '') : escapeHtml(reply.content || '');
+                                            qel.innerHTML = '<div class="quote-block"><div class="quote-header">引用来自：' + escapeHtml(uname) + '</div><div class="quote-content">' + rendered + '</div></div>';
+                                            // 递增深度，防止无限递归
+                                            if (typeof window.postProcessRendered === 'function') window.postProcessRendered(qel, depth + 1);
+                                        } else {
+                                            qel.textContent = '引用的消息未知或已删除';
+                                        }
+                                    })
+                                    .catch(err => { 
+                                        qel.textContent = '引用加载失败'; 
+                                    })
+                                    .finally(() => {
+                                        quoteCount--;
+                                        // 当所有引用都处理完毕后，滚动到底部
+                                        if (quoteCount <= 0) {
+                                            setTimeout(() => {
+                                                const chatContainer = document.getElementById('chat-messages');
+                                                if (chatContainer) {
+                                                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                                                }
+                                            }, 100);
+                                        }
+                                    });
+
+                            } catch (e) { 
+                                console.error('处理引用失败', e); 
+                                quoteCount--;
+                                // 当所有引用都处理完毕后，滚动到底部
+                                if (quoteCount <= 0) {
+                                    setTimeout(() => {
+                                        const chatContainer = document.getElementById('chat-messages');
+                                        if (chatContainer) {
+                                            chatContainer.scrollTop = chatContainer.scrollHeight;
+                                        }
+                                    }, 100);
+                                }
+                            }
+                        });
+                        
+                        // 如果没有引用元素，也需要检查是否需要滚动
+                        if (originalQuoteCount === 0) {
+                            setTimeout(() => {
+                                const chatContainer = document.getElementById('chat-messages');
+                                if (chatContainer) {
+                                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                                }
+                            }, 100);
+                        }
+                    }
+                } catch (e) { console.error('引用后处理错误', e); }
+            } catch (e) {
+                console.error('postProcessRendered 错误:', e);
+            }
+        };
     </script>
     <!-- 全局在线人数更新 -->
     <script>
         // 添加socket.io加载状态跟踪
         document.globalSocketIoLoaded = false;
         document.globalSocketIoCallbacks = [];
+        let heartbeatInterval;
+        function startHeartbeat() {
+            // 清除可能已存在的定时器
+            if (heartbeatInterval) clearInterval(heartbeatInterval);
+
+            heartbeatInterval = setInterval(() => {
+                if (globalSocket && globalSocket.connected) {
+                    globalSocket.emit('heartbeat');
+                    console.log('已发送心跳');
+                }
+            }, 30000); // 30秒发送一次心跳
+        }
         function onGlobalSocketIoLoaded() {
             document.globalSocketIoLoaded = true;
             document.globalSocketIoCallbacks.forEach(cb => cb());
             document.globalSocketIoCallbacks = [];
+            startHeartbeat();
         }
         function waitForGlobalSocketIo(callback) {
             if (document.globalSocketIoLoaded) {
@@ -417,21 +683,18 @@
         }
         // 获取全局在线人数（WebSocket或fetch）
         function getGlobalOnlineCount() {
-            if (globalSocket && globalSocket.connected) {
-                // WebSocket可用
-                globalSocket.emit('get_global_online_count', {});
-            } else {
-                // WebSocket不可用，使用fetch降级方案
-                fetch('/api/online_count')
-                    .then(response => response.json())
-                    .then(data => {
-                        updateGlobalOnlineCountDisplay(data.count);
-                    })
-                    .catch(error => {
-                        console.error('获取全局在线人数失败:', error);
-                        updateGlobalOnlineCountDisplay('错误');
-                    });
-            }
+
+            // WebSocket不可用，使用fetch降级方案
+            fetch('/api/online_count')
+                .then(response => response.json())
+                .then(data => {
+                    updateGlobalOnlineCountDisplay(data.count);
+                })
+                .catch(error => {
+                    console.error('获取全局在线人数失败:', error);
+                    updateGlobalOnlineCountDisplay('错误');
+                });
+
         }
         // 初始化全局在线人数更新
         function initializeGlobalOnlineCount() {
@@ -441,10 +704,9 @@
             getGlobalOnlineCount();
             // 设置定时器定期更新（当WebSocket不可用时）
             setInterval(() => {
-                if (!globalSocket || !globalSocket.connected) {
-                    getGlobalOnlineCount();
-                }
-            }, 60000); // 每分钟更新一次
+                getGlobalOnlineCount();
+                console.log('定时更新全局在线人数');
+            }, 10000); // 每10s更新一次
         }
         // 设置WebSocket连接
         function setupGlobalSocket() {
@@ -463,22 +725,7 @@
                         timeout: 20000,
                         transports: ['websocket', 'polling']
                     });
-                    globalSocket.on('connect', () => {
-                        console.log('全局WebSocket连接已建立');
-                        // 连接建立后，获取一次全局在线人数
-                        getGlobalOnlineCount();
-                    });
-                    globalSocket.on('disconnect', (reason) => {
-                        console.log('全局WebSocket断开连接:', reason);
-                        updateGlobalOnlineCountDisplay('连接中...');
-                    });
-                    globalSocket.on('connect_error', (error) => {
-                        console.error('全局WebSocket连接错误:', error);
-                        updateGlobalOnlineCountDisplay('连接错误');
-                    });
-                    globalSocket.on('global_online_count', (data) => {
-                        updateGlobalOnlineCountDisplay(data.count);
-                    });
+                    initializeGlobalOnlineCount();
                 } catch (e) {
                     console.error('全局WebSocket初始化失败:', e);
                     initializeGlobalOnlineCount(); // 使用降级方案
@@ -502,5 +749,6 @@
     </script>
     {% endblock %}
 </body>
+
 
 </html>

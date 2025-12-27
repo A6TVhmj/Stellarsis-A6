@@ -1,10 +1,14 @@
 // 全局变量
 let chatSocket = null;
 let chatHistoryLoaded = false;
+let chatCurrentPage = null;
+let chatTotalPages = null;
 let followedUserIds = new Set();  // 关注的用户ID集合
 let lastMessageId = 0;
 let onlineUsers = [];
 let roomPermission = 'Null';
+let isScrolledToBottom = true; // 跟踪是否滚动到底部
+let newMessagesCount = 0; // 新消息计数
 
 
 // 添加变量来跟踪最后的消息日期
@@ -60,6 +64,77 @@ function setupOnlineListModal() {
     });
     console.log('在线名单模态框已设置');
 }
+// 验证码模态相关初始化和事件处理
+function setupCaptchaModal(socket) {
+    const modal = document.getElementById('captcha-modal');
+    if (!modal) return;
+    const closeBtn = modal.querySelector('.modal-close');
+    const cancelBtn = document.getElementById('captcha-cancel');
+    const submitBtn = document.getElementById('captcha-submit');
+    const questionEl = document.getElementById('captcha-question');
+    const answerInput = document.getElementById('captcha-answer');
+
+    function hide() {
+        modal.classList.remove('show');
+        answerInput.value = '';
+        questionEl.textContent = '';
+    }
+
+    function show(question) {
+        questionEl.textContent = question || '';
+        modal.classList.add('show');
+        setTimeout(() => answerInput.focus(), 250);
+    }
+
+    closeBtn && closeBtn.addEventListener('click', hide);
+    cancelBtn && cancelBtn.addEventListener('click', hide);
+
+    submitBtn && submitBtn.addEventListener('click', function () {
+        const captchaId = modal.dataset.captchaId;
+        const answer = answerInput.value && answerInput.value.trim();
+        if (!captchaId) return hide();
+
+        // 尝试找到与此客户端 pending 的 client_id
+        // 我们优先使用与当前输入最接近的 pending entry
+        let clientId = null;
+        if (pendingMessages.size > 0) {
+            // choose the most recent pending by sentTime
+            let latest = null;
+            for (const [cid, p] of pendingMessages.entries()) {
+                if (!latest || (p.sentTime || 0) > (latest.sentTime || 0)) latest = p;
+                if (!clientId) clientId = cid;
+            }
+            if (latest && !clientId) clientId = latest.client_id || null;
+        }
+
+        // 发送带有 captcha_id 的 send_message（服务器会以 pending 为准）
+        const payload = {
+            room_id: roomId,
+            message: '',
+            captcha_id: captchaId,
+            captcha_answer: answer
+        };
+        if (clientId) payload.client_id = clientId;
+        socket.emit('send_message', payload);
+        hide();
+    });
+
+    // 接收服务器要求显示验证码
+    socket.on('require_captcha', function (data) {
+        // data: { captcha_id, question }
+        if (!data || !data.captcha_id) return;
+        modal.dataset.captchaId = data.captcha_id;
+        show(data.question || '请输入验证码');
+    });
+
+    // 当用户回车也提交
+    answerInput && answerInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            submitBtn.click();
+        }
+    });
+}
 function updateConnectionStatus(status, message) {
     const statusElement = document.getElementById('connection-status');
     if (!statusElement) return;
@@ -86,22 +161,26 @@ function initializeRenderingSystem() {
         // 定义渲染函数，包含完整的降级方案
         window.renderContent = function (content) {
             try {
+                // 先将 HTML 实体解码回原始字符，再交由 marked 渲染
+                const decoded = decodeHTMLEntities(content);
                 // 安全检查：确保marked可用
                 if (typeof marked !== 'undefined' && typeof marked.parse === 'function') {
-                    return marked.parse(content);
+                    return marked.parse(decoded);
                 }
                 // 降级到简单HTML渲染
-                return simpleHtmlRender(content);
+                return simpleHtmlRender(decoded);
             } catch (e) {
                 console.warn('高级渲染失败，使用降级方案:', e);
-                return simpleHtmlRender(content);
+                return simpleHtmlRender(decodeHTMLEntities(content));
             }
         };
 
-        // 简单HTML渲染作为备选方案
+        // 简单HTML渲染作为备选方案（先解码再安全转义）
         function simpleHtmlRender(content) {
-            // 基本的Markdown行内元素支持
-            let html = escapeHtml(content)
+            // 先解码 HTML 实体，再做安全转义以避免 XSS
+            let safe = escapeHtml(decodeHTMLEntities(content));
+            // 基本的Markdown行内元素支持（在安全的文本上替换）
+            let html = safe
                 .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                 .replace(/\*(.*?)\*/g, '<em>$1</em>')
                 .replace(/`(.*?)`/g, '<code>$1</code>')
@@ -117,6 +196,31 @@ function initializeRenderingSystem() {
     console.log('渲染系统已初始化');
 }
 
+// 处理 message_updated 事件：用服务器的新内容替换现有消息显示
+function setupMessageUpdatedHandler(socket) {
+    socket.on('message_updated', function (msg) {
+        try {
+            if (!msg || !msg.id) return;
+            // 尝试查找元素：使用 data-message-id 属性
+            const selector = '[data-message-id="' + msg.id + '"]';
+            const el = document.querySelector(selector);
+            if (el) {
+                const contentEl = el.querySelector('.message-content');
+                if (contentEl) {
+                    // 使用渲染系统更新内容
+                    contentEl.innerHTML = window.renderContent(msg.content || '');
+                    if (typeof window.postProcessRendered === 'function') window.postProcessRendered(contentEl);
+                }
+            } else {
+                // 如果未找到对应元素，按需追加到消息区
+                addMessageToUI(msg, 0, 1);
+            }
+        } catch (e) {
+            console.error('message_updated handler error', e);
+        }
+    });
+}
+
 // 安全的HTML转义
 function escapeHtml(unsafe) {
     if (!unsafe) return '';
@@ -128,12 +232,102 @@ function escapeHtml(unsafe) {
         .replace(/'/g, "&#039;");
 }
 
+// 将 HTML 实体解码为原始字符（例如 &quot; -> "）
+function decodeHTMLEntities(str) {
+    if (!str) return '';
+    // 多次解码以处理双重/多重转义的历史数据
+    const txt = document.createElement('textarea');
+    let prev = null;
+    let current = str;
+    let iterations = 0;
+    const MAX_ITER = 5;
+    while (current !== prev && iterations < MAX_ITER) {
+        txt.innerHTML = current;
+        prev = current;
+        current = txt.value;
+        iterations++;
+    }
+    return current;
+}
+
+// 标记消息为已删除（幂等）
+function markMessageRemoved(el) {
+    if (!el) return false;
+    try {
+        // 如果已标记为删除，跳过
+        if (el.dataset && el.dataset.deleted === '1') return false;
+
+        // 如果已经存在 .message-removed，也视为已删除
+        if (el.querySelector && el.querySelector('.message-removed')) {
+            if (el.dataset) el.dataset.deleted = '1';
+            return false;
+        }
+
+        // 尝试移除显示内容区（安全降级）
+        try {
+            el.querySelectorAll('.message-content, .message-user').forEach(n => n.remove());
+        } catch (e) {
+            // ignore
+        }
+
+        const removedNotice = document.createElement('div');
+        removedNotice.className = 'message-removed';
+        removedNotice.textContent = '该消息已被删除';
+        el.appendChild(removedNotice);
+        if (el.dataset) el.dataset.deleted = '1';
+        return true;
+    } catch (e) {
+        console.error('markMessageRemoved failed', e);
+        return false;
+    }
+}
+
 // 生成内容哈希
 function generateContentHash(content, timestamp) {
     // 简单哈希：截取内容前50字符 + 时间戳（精确到秒）
     const contentSnippet = content.substring(0, 50);
     const timeKey = new Date(timestamp).getTime() / 1000 | 0;  // 精确到秒
     return btoa(encodeURIComponent(`${contentSnippet}|${timeKey}`)).substring(0, 16);
+}
+
+// 验证引用的消息是否在当前聊天室中存在
+function validateQuotes(message, roomId) {
+    // 检查消息中是否有引用
+    const quotePattern = /@quote\{(\d+)\}/g;
+    const matches = [...message.matchAll(quotePattern)];
+    
+    if (matches.length === 0) {
+        return Promise.resolve(true); // 没有引用，直接返回true
+    }
+    
+    // 对每个引用ID进行验证
+    const quoteIds = matches.map(match => parseInt(match[1]));
+    
+    // 向服务器验证这些引用是否在当前聊天室内
+    return fetch('/api/chat/validate_quotes', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            room_id: roomId,
+            quote_ids: quoteIds
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.valid_quotes) {
+            // 检查是否所有引用都是有效的
+            const validIds = new Set(data.valid_quotes);
+            const allValid = quoteIds.every(id => validIds.has(id));
+            return allValid;
+        }
+        return false;
+    })
+    .catch(error => {
+        console.error('验证引用失败:', error);
+        return false; // 验证失败时返回false
+    });
 }
 
 // 统一时间格式化函数（UTC+8时区）
@@ -210,8 +404,9 @@ function waitForRenderSystem(callback) {
 // 加载聊天历史
 function loadChatHistory() {
     if (chatHistoryLoaded) return;
-
-    fetch(`/api/chat/${roomId}/history`)
+    // 请求最后一页以显示最新消息
+    const pageSize = 50;
+    fetch(`/api/chat/${roomId}/history?page=last&limit=${pageSize}`)
         .then(response => {
             if (!response.ok) {
                 throw new Error(`HTTP错误! 状态: ${response.status}`);
@@ -226,10 +421,9 @@ function loadChatHistory() {
             lastMessageDate = null;
 
             // 保存当前滚动位置
-            const isScrolledToBottom = Math.abs(
+            isScrolledToBottom = Math.abs(
                 messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight
             ) < 5;
-
             data.messages.forEach(msg => {
                 addMessageToUI(msg, 0, 1);
                 // 记录历史消息ID，防止与随后收到的实时消息重复渲染
@@ -237,6 +431,90 @@ function loadChatHistory() {
                     processedMessageIds.add(msg.id);
                 }
             });
+            // 如果服务端返回分页信息，初始化加载更多按钮
+            if (typeof data.page !== 'undefined' && typeof data.total_pages !== 'undefined') {
+                chatCurrentPage = data.page;
+                chatTotalPages = data.total_pages;
+                if (messagesContainer) {
+                    let wrap = document.getElementById('chat-load-more-wrap');
+                    if (!wrap) {
+                        wrap = document.createElement('div');
+                        wrap.id = 'chat-load-more-wrap';
+                        wrap.style.textAlign = 'center';
+                        wrap.style.margin = '6px 0';
+                        const btn = document.createElement('button');
+                        btn.id = 'chat-load-more-btn';
+                        btn.className = 'btn';
+                        btn.dataset.currentPage = chatCurrentPage;
+                        btn.dataset.totalPages = chatTotalPages;
+                        btn.textContent = '加载更多';
+
+                        // Determine initial visibility based on has_more field
+                        if (data.has_more !== undefined) {
+                            // Use the has_more field to determine visibility
+                            if (data.has_more || chatCurrentPage > 0) {
+                                btn.style.display = '';
+                            } else {
+                                btn.style.display = 'none';
+                            }
+                        } else {
+                            // Fallback to old logic if has_more field is not provided
+                            if (chatTotalPages > 1) {
+                                btn.style.display = '';
+                            } else {
+                                btn.style.display = 'none';
+                            }
+                        }
+
+                        wrap.appendChild(btn);
+                        messagesContainer.insertBefore(wrap, messagesContainer.firstChild);
+
+                        btn.addEventListener('click', function () {
+                            const cur = parseInt(btn.dataset.currentPage || '0', 10);
+                            const nextPage = cur - 1;
+
+                            btn.disabled = true; btn.textContent = '加载中...';
+                            fetch(`/api/chat/${roomId}/history?page=${nextPage}&limit=${pageSize}`)
+                                .then(r => { if (!r.ok) throw new Error('加载失败'); return r.json(); })
+                                .then(d => {
+                                    if (d && Array.isArray(d.messages)) {
+                                        // 记录之前的滚动高度以便恢复视图位置
+                                        const prevScrollTop = messagesContainer.scrollTop;
+                                        const prevScrollHeight = messagesContainer.scrollHeight;
+                                        prependMessages(d.messages);
+                                        // 恢复视图：保持之前顶部消息位置不变
+                                        const newScrollHeight = messagesContainer.scrollHeight;
+                                        const heightDiff = newScrollHeight - prevScrollHeight;
+                                        messagesContainer.scrollTop = prevScrollTop + heightDiff;
+                                        btn.dataset.currentPage = nextPage;
+
+                                        // Use the new has_more field to determine if we should show the button
+                                        if (d.has_more !== undefined) {
+                                            // Server provides has_more field, use it
+                                            if (d.has_more) {
+                                                btn.style.display = '';
+                                            } else {
+                                                btn.style.display = 'none';
+                                            }
+                                        } else {
+                                            // Fallback to old logic if has_more field is not provided
+                                            if (nextPage <= 0) btn.style.display = 'none';
+                                            else btn.style.display = '';
+                                        }
+                                    } else {
+                                        console.error('加载更多返回格式错误');
+                                        btn.style.display = 'none';
+                                    }
+                                })
+                                .catch(err => {
+                                    console.error('加载更多失败', err);
+                                    btn.style.display = 'none';
+                                })
+                                .finally(() => { btn.disabled = false; btn.textContent = '加载更多'; });
+                        });
+                    }
+                }
+            }
 
             // 更新最后一条消息ID
             if (data.messages.length > 0) {
@@ -246,9 +524,9 @@ function loadChatHistory() {
             }
 
             // 如果之前滚动到底部，则滚动到底部
-            if (isScrolledToBottom) {
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            }
+            // 加载最后一页默认滚动到底部
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            isScrolledToBottom = true; // 更新滚动状态
             chatHistoryLoaded = true;
         })
         .catch(error => {
@@ -289,8 +567,8 @@ function setupPolling() {
                                     // Exact content match + reasonable time window (30s)
                                     const pendingSent = pending.sentTime || pending.timestamp || 0;
                                     // allow match when content equals and timestamps within 30s OR the calendar date matches (tolerate timezone differences)
-                                    const serverDateIso = new Date(serverTsMs).toISOString().slice(0,10);
-                                    const pendingDateIso = new Date(pendingSent).toISOString().slice(0,10);
+                                    const serverDateIso = new Date(serverTsMs).toISOString().slice(0, 10);
+                                    const pendingDateIso = new Date(pendingSent).toISOString().slice(0, 10);
                                     if (pending.content === serverContent && (Math.abs(serverTsMs - pendingSent) < 30000 || serverDateIso === pendingDateIso)) {
                                         console.debug('Polling matched pending by content/time (or same-date)', cid, '->', msg.id, 'serverDate=', serverDateIso, 'pendingDate=', pendingDateIso);
                                         updateExistingMessage(cid, msg);
@@ -319,7 +597,7 @@ function setupPolling() {
 
                         if (!matched) {
                             // New message for UI
-                            addMessageToUI(msg, 0, 1);
+                            addMessageToUI(msg, 0, 0);
                             if (msg.id) processedMessageIds.add(msg.id);
                             hasNewMessages = true;
                         } else {
@@ -333,8 +611,45 @@ function setupPolling() {
                         }
                     });
 
+                    // 检测服务器上已不存在但客户端仍然显示的消息（标记为已删除）
+                    try {
+                        const serverIds = new Set((data.messages || []).filter(m => m && m.id).map(m => String(m.id)));
+                        document.querySelectorAll('[data-message-id]').forEach(function (el) {
+                            try {
+                                const mid = el.dataset.messageId;
+                                if (!mid) return;
+                                // 跳过本地 pending 客户端ID
+                                if (mid.indexOf('client-') === 0 || mid.indexOf('sent-') === 0) return;
+                                if (!serverIds.has(String(mid))) {
+                                    // 标记为已删除（幂等操作，避免重复插入）
+                                    try {
+                                        markMessageRemoved(el);
+                                    } catch (e) {
+                                        if (el.parentNode) el.parentNode.removeChild(el);
+                                    }
+                                }
+                            } catch (e) { /* ignore per-element errors */ }
+                        });
+                    } catch (e) { console.debug('轮询删除检测失败', e); }
+
                     if (hasNewMessages) {
-                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                        // 检查当前是否滚动到底部
+                        const currentScrollTop = messagesContainer.scrollTop;
+                        const currentScrollHeight = messagesContainer.scrollHeight;
+                        const currentClientHeight = messagesContainer.clientHeight;
+                        const isCurrentlyAtBottom = Math.abs(currentScrollHeight - currentScrollTop - currentClientHeight) < 5;
+                        
+                        // 更新滚动状态
+                        isScrolledToBottom = isCurrentlyAtBottom;
+
+                        // 如果当前滚动到底部，则滚动到最新消息
+                        if (isScrolledToBottom) {
+                            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                        } else {
+                            // 如果未滚动到底部，显示新消息提示
+                            newMessagesCount++;
+                            showNewMessageNotification();
+                        }
                     }
                 })
                 .catch(error => {
@@ -346,6 +661,22 @@ function setupPolling() {
     // 每30秒更新在线状态
     setInterval(updateOnlineStatus, 30000);
 }
+
+// Developer helper: toggle websocket fallback simulation from console
+window.__dev_toggle_ws_fallback = function (enable) {
+    try {
+        if (enable) {
+            console.info('Dev: enabling WS fallback (simulate websocket unavailable)');
+            document.body.classList.add('no-websocket');
+            try { if (chatSocket && chatSocket.disconnect) chatSocket.disconnect(); } catch (e) { }
+            try { setupPolling(); } catch (e) { console.warn('setupPolling unavailable', e); }
+        } else {
+            console.info('Dev: disabling WS fallback (attempt reload)');
+            document.body.classList.remove('no-websocket');
+            try { location.reload(); } catch (e) { }
+        }
+    } catch (e) { console.error(e); }
+};
 
 // 设置WebSocket
 function setupWebSocket() {
@@ -365,10 +696,29 @@ function setupWebSocket() {
             timeout: 20000,
             transports: ['websocket', 'polling']
         });
-
+        if (window.roomHeartbeatInterval) {
+            clearInterval(window.roomHeartbeatInterval);
+        }
+        window.roomHeartbeatInterval = setInterval(() => {
+            if (chatSocket && chatSocket.connected) {
+                chatSocket.emit('heartbeat_chat', { room_id: roomId });
+            }
+        }, 5000);
+        if (chatSocket && chatSocket.connected) {
+            chatSocket.emit('heartbeat_chat', { room_id: roomId });
+        }
         chatSocket.on('connect', () => {
             console.log('WebSocket连接已建立');
             updateConnectionStatus('connected', '已连接');
+            if (!chatSocket.hasJoinedRoom) {
+                // 重新加入房间
+                chatSocket.emit('join', { room: roomId });
+                chatSocket.hasJoinedRoom = true;
+                // 重新获取在线人数
+                setTimeout(() => {
+                    chatSocket.emit('get_online_users', { room_id: roomId });
+                }, 1000);
+            }
             if (!chatSocket.hasJoinedRoom) {
                 // 加载关注列表
                 fetch('/api/follow/following')
@@ -397,7 +747,17 @@ function setupWebSocket() {
             if (onlineCountElement) {
                 onlineCountElement.textContent = '连接中...';
             }
+            // 清理心跳定时器
+            if (window.roomHeartbeatInterval) {
+                clearInterval(window.roomHeartbeatInterval);
+                window.roomHeartbeatInterval = null;
+            }
 
+            // 清理在线人数更新定时器
+            if (window.updateOnlineCountInterval) {
+                clearInterval(window.updateOnlineCountInterval);
+                window.updateOnlineCountInterval = null;
+            }
             // 尝试重新连接
             if (reason !== 'io server disconnect') {
                 updateConnectionStatus('disconnected', '服务器断开连接，请重新连接');
@@ -441,8 +801,8 @@ function setupWebSocket() {
                             if (pending.content === serverContent) {
                                 const serverTime = data.timestamp ? new Date(data.timestamp).getTime() : 0;
                                 const sentTime = pending.sentTime || 0;
-                                const serverDateIso = serverTime ? new Date(serverTime).toISOString().slice(0,10) : '';
-                                const pendingDateIso = sentTime ? new Date(sentTime).toISOString().slice(0,10) : '';
+                                const serverDateIso = serverTime ? new Date(serverTime).toISOString().slice(0, 10) : '';
+                                const pendingDateIso = sentTime ? new Date(sentTime).toISOString().slice(0, 10) : '';
                                 if (!serverTime || Math.abs(serverTime - sentTime) < 15000 || (serverDateIso && pendingDateIso && serverDateIso === pendingDateIso)) {
                                     matchedClientId = cid;
                                     console.debug('精确匹配通过:', cid, 'serverDate=', serverDateIso, 'pendingDate=', pendingDateIso);
@@ -471,7 +831,7 @@ function setupWebSocket() {
             // 如果上述都没匹配到，则这是一个新的消息（普通逻辑）
             if (!handled) {
                 console.debug('未匹配到任何 pending，作为新消息添加，serverId=', data.id);
-                addMessageToUI(data);
+                addMessageToUI(data, 0, 0);
                 if (data.id) processedMessageIds.add(data.id);
             }
 
@@ -485,10 +845,31 @@ function setupWebSocket() {
             }
         });
 
+        // listen for message deletion broadcasts from server
+        chatSocket.on('message_deleted', function (data) {
+            try {
+                var mid = data && (data.id || data.message_id);
+                if (!mid) return;
+                var el = document.querySelector('[data-message-id="' + mid + '"]');
+                if (el) {
+                    try {
+                        // use idempotent helper to avoid duplicate notices
+                        markMessageRemoved(el);
+                    } catch (e) {
+                        // fallback remove
+                        if (el.parentNode) el.parentNode.removeChild(el);
+                    }
+                }
+            } catch (e) { console.error('处理 message_deleted 失败', e); }
+        });
+
         chatSocket.on('online_users', (data) => {
             onlineUsers = data.users || [];
             updateOnlineCount();
         });
+        window.updateOnlineCountInterval = setInterval(() => {
+            chatSocket.emit('get_online_users', { room_id: roomId });
+        }, 5000);
 
         // 监听用户进出事件（用于关注通知） - 使用 addMessageToUI 以利用已存在的系统事件去重逻辑
         chatSocket.on('user_join', (data) => {
@@ -545,18 +926,23 @@ function toggleFollowUser(userId) {
         .catch(err => console.error('关注操作失败:', err));
 }
 
-// 更新在线状态
+// 3. 修复updateOnlineStatus函数
 function updateOnlineStatus() {
-    if (chatSocket) {
+    if (chatSocket && chatSocket.connected) {
         chatSocket.emit('get_online_users', { room_id: roomId });
     } else {
-        // 轮询模式下，简单更新在线人数
-        fetch('/api/online_count')
+        // 轮询模式下，获取特定房间的在线人数
+        fetch(`/api/chat/${roomId}/online_count`)
             .then(response => response.json())
             .then(data => {
                 const onlineCountElement = document.getElementById('online-count');
                 if (onlineCountElement) {
                     onlineCountElement.textContent = data.count || '未知';
+                }
+                // 同时更新在线用户列表
+                if (data.users) {
+                    onlineUsers = data.users;
+                    updateOnlineUsersList();
                 }
             })
             .catch(error => {
@@ -645,13 +1031,13 @@ function sendMessage() {
     // 通过WebSocket发送
     if (chatSocket && chatSocket.connected) {
         // 本地预览
-            // 本地预览
-            // include both id and client_id on the local preview so server echoes can be matched
-            const localMessage = {
-                id: clientId,
-                client_id: clientId,
+        // 本地预览
+        // include both id and client_id on the local preview so server echoes can be matched
+        const localMessage = {
+            id: clientId,
+            client_id: clientId,
             content: message,
-            timestamp: new Date().toISOString(),
+            timestamp: new Date(new Date().getTime() + 8 * 60 * 60 * 1000).toISOString(),
             user_id: currentUserId,
             username: currentUsername,
             nickname: currentNickname,
@@ -659,14 +1045,42 @@ function sendMessage() {
             badge: currentUserBadge,
             isPending: true  // 标记为待确认
         };
+        addMessageToUI(localMessage, true, false);
 
-        addMessageToUI(localMessage, true);
-
+        // 使用回调处理服务器响应，直接替换消息ID
         chatSocket.emit('send_message', {
             room_id: roomId,
             message: message,
             client_id: clientId  // 发送客户端ID
+        }, function (response) {
+            // 服务器响应回调，处理返回的消息数据
+            if (response && response.success && response.data && response.data.id) {
+                // 使用服务器返回的真实ID更新本地消息
+                updateExistingMessage(clientId, response.data);
+
+                // 从待确认消息集合中移除，避免后续广播重复处理
+                pendingMessages.delete(clientId);
+
+                // 将服务器返回的ID添加到已处理集合，防止广播时重复处理
+                if (response.data.id) {
+                    processedMessageIds.add(response.data.id);
+                }
+                
+                // 在消息成功发送后，自动滚动到底部
+                setTimeout(() => {
+                    scrollToBottom();
+                }, 100);
+            } else {
+                console.warn('消息发送响应格式异常:', response);
+                // 如果响应有问题，仍依赖广播机制作为备用
+                // 广播机制会继续尝试匹配和处理
+            }
         });
+        
+        // 在发送消息后立即滚动到底部，确保用户能看到自己发送的消息
+        setTimeout(() => {
+            scrollToBottom();
+        }, 50);
     } else {
         // WebSocket不可用，使用AJAX
         fetch('/api/chat/send', {
@@ -699,7 +1113,12 @@ function sendMessage() {
                         badge: currentUserBadge
                     };
 
-                    addMessageToUI(sentMessage, true);
+                    addMessageToUI(sentMessage, true, false);
+                    
+                    // 在消息成功发送后，自动滚动到底部
+                    setTimeout(() => {
+                        scrollToBottom();
+                    }, 50);
                 }
             })
             .catch(error => {
@@ -735,6 +1154,9 @@ function setupMessageInput() {
     }
 
     if (messageInput) {
+        // 初始化时调整高度
+        window.autoResizeTextarea(messageInput);
+
         // 使用 keydown 以便检测 ctrl/meta 键
         messageInput.addEventListener('keydown', function (e) {
             // Ctrl+Enter 或 Meta(Command)+Enter：插入换行
@@ -758,6 +1180,11 @@ function setupMessageInput() {
                 return;
             }
         });
+
+        // 监听输入事件以调整高度
+        messageInput.addEventListener('input', function () {
+            window.autoResizeTextarea(this);
+        });
     }
 
     // 移动端：聚焦时确保消息区滚动到底部，避免被软键盘遮挡
@@ -767,6 +1194,7 @@ function setupMessageInput() {
         // 延迟以等待软键盘或布局调整
         setTimeout(() => {
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            isScrolledToBottom = true; // 更新滚动状态
         }, 150);
     }
 
@@ -799,7 +1227,6 @@ function addMessageToUI(msg, isLocal = false, his = false) {
     if (!messagesContainer) return;
     if (his) {
         isLocal = (msg.user_id == userId);
-        his=0;
     }
     if (msg.user_id == userId && !isLocal) return;
     // 2. 特殊处理系统消息
@@ -818,12 +1245,61 @@ function addMessageToUI(msg, isLocal = false, his = false) {
             }
         }
     }
-
+    const currentScrollTop = messagesContainer.scrollTop;
+    const currentScrollHeight = messagesContainer.scrollHeight;
+    const currentClientHeight = messagesContainer.clientHeight;
+    const wasScrolledToBottom = Math.abs(currentScrollHeight - currentScrollTop - currentClientHeight) < 5;
     // 创建并添加消息元素
-    const messageElement = createMessageElement(msg, isLocal);
+    const messageElement = createMessageElement(msg, isLocal, his);
     // 添加到容器
     messagesContainer.appendChild(messageElement);
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    const newScrollHeight = messagesContainer.scrollHeight;
+    isScrolledToBottom = Math.abs(newScrollHeight - messagesContainer.scrollTop - currentClientHeight) < 5;
+
+    // 如果是历史消息（his=1），则滚动到底部
+    if (his) {
+        // 自动滚动到最底部 - 使用setTimeout确保DOM渲染完成后再滚动
+        setTimeout(() => {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            isScrolledToBottom = true;
+        }, 0);
+    } else {
+        // 如果不是历史消息（新消息），则不自动滚动，但显示新消息提示
+        if (!wasScrolledToBottom) {
+            newMessagesCount++;
+            showNewMessageNotification();
+        }
+    }
+}
+
+// 将一组消息插入到消息容器顶部（按时间顺序：最旧在上）
+function prependMessages(messages) {
+    const messagesContainer = document.getElementById('chat-messages');
+    if (!messagesContainer || !Array.isArray(messages) || messages.length === 0) return;
+
+    // 保存加载更多按钮（如果存在）
+    const loadMoreWrap = document.getElementById('chat-load-more-wrap');
+    if (loadMoreWrap) {
+        // 临时移除按钮
+        messagesContainer.removeChild(loadMoreWrap);
+    }
+
+    // 创建文档片段以减少回流
+    const frag = document.createDocumentFragment();
+    messages.forEach(m => {
+        const isLocal = m.user_id && Number(m.user_id) === Number(userId);
+        const el = createMessageElement(m, isLocal, true);
+        frag.appendChild(el);
+        if (m.id) processedMessageIds.add(m.id);
+    });
+
+    // 将新消息插入到容器开头
+    messagesContainer.insertBefore(frag, messagesContainer.firstChild);
+
+    // 重新插入加载更多按钮到最顶部
+    if (loadMoreWrap) {
+        messagesContainer.insertBefore(loadMoreWrap, messagesContainer.firstChild);
+    }
 }
 
 
@@ -859,7 +1335,20 @@ function addStatusMessage(msg) {
     statusElement.textContent = msg;
 
     messagesContainer.appendChild(statusElement);
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    
+    // 检查当前是否滚动到底部
+    const currentScrollTop = messagesContainer.scrollTop;
+    const currentScrollHeight = messagesContainer.scrollHeight;
+    const currentClientHeight = messagesContainer.clientHeight;
+    const isCurrentlyAtBottom = Math.abs(currentScrollHeight - currentScrollTop - currentClientHeight) < 5;
+    
+    // 如果当前滚动到底部，则滚动到最新消息
+    if (isCurrentlyAtBottom) {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        isScrolledToBottom = true;
+    } else {
+        isScrolledToBottom = false;
+    }
 }
 
 // 更新现有消息
@@ -970,6 +1459,11 @@ function updateExistingMessage(clientId, serverMessage) {
     // At this point we have the element to update
     const oldId = existingMessage.dataset.messageId || (clientId || serverClientId || null);
     try {
+        // 如果该元素已被标记为已删除，则不要重新恢复内容
+        if (existingMessage.dataset && existingMessage.dataset.deleted === '1') {
+            console.debug('updateExistingMessage: 目标元素已标记为删除，跳过恢复', { oldId, serverId });
+            return;
+        }
         // set new id
         if (serverId) existingMessage.dataset.messageId = serverId; else if (serverClientId) existingMessage.dataset.messageId = serverClientId;
 
@@ -987,6 +1481,7 @@ function updateExistingMessage(clientId, serverMessage) {
             try {
                 if (typeof window.renderContent === 'function') {
                     contentElement.innerHTML = window.renderContent(contentElement.dataset.originalContent);
+                    if (typeof window.postProcessRendered === 'function') window.postProcessRendered(contentElement);
                 } else {
                     contentElement.innerHTML = `<div class="render-fallback">${escapeHtml(contentElement.dataset.originalContent)}</div>`;
                 }
@@ -1007,39 +1502,42 @@ function updateExistingMessage(clientId, serverMessage) {
         try {
             const confirmedMessage = document.querySelector(`[data-message-id="${serverId || serverClientId}"]`);
             if (confirmedMessage) {
-                const hasDel = confirmedMessage.querySelector('.message-delete-btn');
-                // If a delete button already exists it may still have an old click handler
-                // bound to the temporary id. Replace it so it uses the authoritative id.
-                if (hasDel) {
-                    try {
-                        const replaced = hasDel.cloneNode(true);
-                        hasDel.parentNode.replaceChild(replaced, hasDel);
-                        // rebind new handler
-                        replaced.addEventListener('click', function (e) {
+                const existingDropdown = confirmedMessage.querySelector('.message-actions-dropdown');
+                if (existingDropdown) {
+                    // Update any delete handlers in the dropdown to use the new serverId
+                    const deleteItem = existingDropdown.querySelector('.message-delete-item');
+                    if (deleteItem && serverId) {
+                        const newDeleteItem = deleteItem.cloneNode(true);
+                        deleteItem.parentNode.replaceChild(newDeleteItem, deleteItem);
+                        newDeleteItem.addEventListener('click', (e) => {
                             e.stopPropagation();
                             deleteChatMessage(serverId || serverClientId, confirmedMessage);
+                            const menu = existingDropdown.querySelector('.dropdown-menu');
+                            if (menu) menu.classList.remove('show');
                         });
-                    } catch (e) {
-                        // If cloning/rebinding fails we'll remove the old handler and proceed to add a fresh button below
-                        try { hasDel.remove(); } catch (er) { /* ignore */ }
                     }
-                }
-
-                if (!confirmedMessage.querySelector('.message-delete-btn')) {
-                    const userElement = confirmedMessage.querySelector('.message-user');
-                    const canDeleteAll = (typeof roomPermission !== 'undefined' && roomPermission === 'su');
-                    const canDeleteOwn = (typeof roomPermission !== 'undefined' && roomPermission === '777' && Number(serverMessage.user_id) === Number(currentUserId));
-                    if (userElement && (canDeleteAll || canDeleteOwn)) {
-                        const delBtn = document.createElement('button');
-                        delBtn.className = 'btn delete-btn message-delete-btn';
-                        delBtn.title = '删除消息';
-                        delBtn.textContent = '删除';
-                        delBtn.style.marginLeft = '8px';
-                        delBtn.addEventListener('click', function (e) {
+                    const quoteItem = existingDropdown.querySelector('.message-quote-item');
+                    if (quoteItem && serverId) {
+                        // Remove existing event listener by cloning the element
+                        const newQuoteItem = quoteItem.cloneNode(true);
+                        quoteItem.parentNode.replaceChild(newQuoteItem, quoteItem);
+                        // Rebind the new handler with the correct serverId
+                        newQuoteItem.addEventListener('click', (e) => {
                             e.stopPropagation();
-                            deleteChatMessage(serverId || serverClientId, confirmedMessage);
+                            try {
+                                const ta = document.getElementById('message-text');
+                                if (!ta) return;
+                                const insert = `@quote{${serverId || serverClientId}}\n`;
+                                ta.value = insert + ta.value;
+                                ta.focus();
+                                try { ta.setSelectionRange(insert.length, insert.length); } catch (err) { }
+                            } catch (err) {
+                                console.error('插入引用失败', err);
+                            } finally {
+                                const menu = existingDropdown.querySelector('.dropdown-menu');
+                                if (menu) menu.classList.remove('show');
+                            }
                         });
-                        userElement.appendChild(delBtn);
                     }
                 }
             }
@@ -1048,6 +1546,26 @@ function updateExistingMessage(clientId, serverMessage) {
         }
 
         console.debug('updateExistingMessage: successfully updated', { oldId, newId: serverId || serverClientId });
+
+        // 在更新消息后，如果消息容器存在，根据滚动状态决定是否滚动到底部
+        const messagesContainer = document.getElementById('chat-messages');
+        if (messagesContainer) {
+            setTimeout(() => {
+                // 检查当前是否滚动到底部
+                const currentScrollTop = messagesContainer.scrollTop;
+                const currentScrollHeight = messagesContainer.scrollHeight;
+                const currentClientHeight = messagesContainer.clientHeight;
+                const isCurrentlyAtBottom = Math.abs(currentScrollHeight - currentScrollTop - currentClientHeight) < 5;
+                
+                // 更新滚动状态
+                isScrolledToBottom = isCurrentlyAtBottom;
+
+                // 如果当前滚动到底部，则滚动到最新消息
+                if (isScrolledToBottom) {
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                }
+            }, 0);
+        }
     } catch (e) {
         console.error('updateExistingMessage: error updating element', e);
     }
@@ -1058,10 +1576,89 @@ function updateExistingMessage(clientId, serverMessage) {
     }
 }
 
+// 显示新消息提示
+function showNewMessageNotification() {
+    const messagesContainer = document.getElementById('chat-messages');
+    if (!messagesContainer) return;
+
+    // 移除现有的新消息提示（如果存在）
+    const existingNotification = document.getElementById('new-messages-notification');
+    if (existingNotification) {
+        existingNotification.remove();
+    }
+
+    // 创建新消息提示元素
+    const notification = document.createElement('div');
+    notification.id = 'new-messages-notification';
+    notification.className = 'new-messages-notification';
+    
+    // 使用Font Awesome图标
+    notification.innerHTML = `
+        <div class="new-messages-content">
+            <i class="fas fa-bell"></i>
+            <span>${newMessagesCount} 条新消息</span>
+            <button id="scroll-to-bottom-btn" class="btn btn-sm">
+                <i class="fas fa-arrow-down"></i> 查看
+            </button>
+        </div>
+    `;
+
+    // 添加到消息容器的上方，这样它始终可见
+    messagesContainer.parentNode.insertBefore(notification, messagesContainer);
+
+    // 为滚动按钮添加事件监听器
+    const scrollBtn = document.getElementById('scroll-to-bottom-btn');
+    if (scrollBtn) {
+        scrollBtn.addEventListener('click', function() {
+            scrollToBottom();
+            // 重置新消息计数
+            newMessagesCount = 0;
+            // 移除通知
+            const notification = document.getElementById('new-messages-notification');
+            if (notification) {
+                notification.remove();
+            }
+        });
+    }
+}
+
+// 滚动到底部的函数
+function scrollToBottom() {
+    const messagesContainer = document.getElementById('chat-messages');
+    if (!messagesContainer) return;
+    
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    isScrolledToBottom = true;
+}
+
+// 监听滚动事件以更新滚动状态
+function setupScrollListener() {
+    const messagesContainer = document.getElementById('chat-messages');
+    if (!messagesContainer) return;
+
+    messagesContainer.addEventListener('scroll', function() {
+        const currentScrollTop = messagesContainer.scrollTop;
+        const currentScrollHeight = messagesContainer.scrollHeight;
+        const currentClientHeight = messagesContainer.clientHeight;
+        const isCurrentlyAtBottom = Math.abs(currentScrollHeight - currentScrollTop - currentClientHeight) < 5;
+        
+        isScrolledToBottom = isCurrentlyAtBottom;
+
+        // 如果滚动到底部，清除新消息提示
+        if (isScrolledToBottom) {
+            newMessagesCount = 0;
+            const notification = document.getElementById('new-messages-notification');
+            if (notification) {
+                notification.remove();
+            }
+        }
+    });
+}
+
 // 删除聊天室消息
 function deleteChatMessage(messageId, messageElement) {
     if (!messageId) return;
-    showConfirm('确定要删除此消息吗？此操作不可撤销。', {danger: true})
+    showConfirm('确定要删除此消息吗？此操作不可撤销。', { danger: true })
         .then(function (confirmed) {
             if (!confirmed) return;
             // 调用后端删除接口
@@ -1075,13 +1672,9 @@ function deleteChatMessage(messageId, messageElement) {
                     if (data && data.success) {
                         // 可选择完全移除或替换为已删除提示
                         try {
-                            if (messageElement && messageElement.parentNode) {
-                                // 将内容替换为已删除提示
-                                messageElement.querySelectorAll('.message-content, .message-user').forEach(n => n.remove());
-                                const removedNotice = document.createElement('div');
-                                removedNotice.className = 'message-removed';
-                                removedNotice.textContent = '该消息已被删除';
-                                messageElement.appendChild(removedNotice);
+                            // 使用幂等标记函数，避免重复插入删除提示
+                            if (messageElement) {
+                                markMessageRemoved(messageElement);
                             }
                         } catch (e) {
                             console.warn('更新删除的消息UI失败，尝试移除元素:', e);
@@ -1100,7 +1693,7 @@ function deleteChatMessage(messageId, messageElement) {
 }
 
 // 创建消息元素
-function createMessageElement(msg, isLocal = false) {
+function createMessageElement(msg, isLocal = false, his = false) {
     const messageElement = document.createElement('div');
 
     // 区分消息类型
@@ -1137,9 +1730,17 @@ function createMessageElement(msg, isLocal = false) {
     }
 
     // 用户消息处理
+    // 检查消息是否包含2026，如果是则应用爱心效果
+    const hasHeartEffect = msg.content && msg.content.includes('2026');
+
     // 用户信息
     const userElement = document.createElement('div');
     userElement.className = 'message-user';
+    const isHeartRainEnabled = localStorage.getItem('heartRainEnabled') !== 'false';
+    // 如果消息包含2026，添加爱心镶边效果（对所有人显示）
+    if (hasHeartEffect && isHeartRainEnabled) {
+        messageElement.classList.add('heart-border');
+    }
 
     // 用户徽章（如果有）
     if (msg.badge) {
@@ -1182,27 +1783,92 @@ function createMessageElement(msg, isLocal = false) {
         messageElement.dataset.messageId = msg.client_id;
     }
 
-    // 添加删除按钮（根据权限）
+    // 如果是本地消息且包含2026，触发爱心雨效果（仅对自己显示）
+    if (isLocal && hasHeartEffect && (his == false)) {
+        triggerHeartRain();
+    }
     try {
-        const canDeleteAll = (typeof roomPermission !== 'undefined' && roomPermission === 'su');
-        const canDeleteOwn = (typeof roomPermission !== 'undefined' && roomPermission === '777' && Number(msg.user_id) === Number(currentUserId));
-        if (msg.id && (canDeleteAll || canDeleteOwn)) {
-            const delBtn = document.createElement('button');
-            delBtn.className = 'btn delete-btn message-delete-btn';
-            delBtn.title = '删除消息';
-            delBtn.textContent = '删除';
-            delBtn.style.marginLeft = '8px';
-            delBtn.addEventListener('click', function (e) {
+        const canDelete = msg.id && (
+            (typeof roomPermission !== 'undefined' && roomPermission === 'su') ||
+            (typeof roomPermission !== 'undefined' && roomPermission === '777' && Number(msg.user_id) === Number(currentUserId))
+        );
+        const canQuote = msg.id && canSendMessages();
+
+        if (canDelete || canQuote) {
+            // 创建下拉菜单容器
+            const dropdown = document.createElement('div');
+            dropdown.className = 'dropdown message-actions-dropdown'; // 主容器
+
+            // 创建触发按钮（...）
+            const toggleBtn = document.createElement('button');
+            toggleBtn.className = 'btn dropdown-toggle action-toggle-btn'; // 触发按钮
+            toggleBtn.title = '更多操作';
+            toggleBtn.textContent = '⋯';
+            toggleBtn.style.marginLeft = '6px';
+            toggleBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                deleteChatMessage(msg.id, messageElement);
+                // 切换菜单显示/隐藏（实际实现需要CSS配合，这里只提供类名）
+                const menu = dropdown.querySelector('.dropdown-menu');
+                menu.classList.toggle('show'); // 显示/隐藏菜单
             });
-            // 将删除按钮添加到用户Element末尾（更靠近用户名）
-            userElement.appendChild(delBtn);
+
+            // 创建菜单
+            const menu = document.createElement('div');
+            menu.className = 'dropdown-menu action-context-menu'; // 下拉菜单容器
+
+            // 添加删除选项（如果权限允许）
+            if (canDelete) {
+                const deleteItem = document.createElement('button');
+                deleteItem.className = 'dropdown-item message-delete-item'; // 菜单项
+                deleteItem.textContent = '删除消息';
+                deleteItem.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    deleteChatMessage(msg.id, messageElement);
+                    menu.classList.remove('show'); // 关闭菜单
+                });
+                menu.appendChild(deleteItem);
+            }
+
+            // 添加引用选项（如果权限允许）
+            if (canQuote) {
+                const quoteItem = document.createElement('button');
+                quoteItem.className = 'dropdown-item message-quote-item'; // 菜单项
+                quoteItem.textContent = '引用';
+                quoteItem.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    try {
+                        const ta = document.getElementById('message-text');
+                        if (!ta) return;
+                        const insert = `@quote{${msg.id}}\n`;
+                        ta.value = insert + ta.value;
+                        ta.focus();
+                        try { ta.setSelectionRange(insert.length, insert.length); } catch (err) { }
+                    } catch (err) {
+                        console.error('插入引用失败', err);
+                    } finally {
+                        menu.classList.remove('show'); // 关闭菜单
+                    }
+                });
+                menu.appendChild(quoteItem);
+            }
+
+            // 组装组件
+            dropdown.appendChild(toggleBtn);
+            dropdown.appendChild(menu);
+
+            // 添加点击外部区域关闭菜单（简化版）
+            document.addEventListener('click', (e) => {
+                if (!dropdown.contains(e.target)) {
+                    menu.classList.remove('show');
+                }
+            });
+
+            // 插入到用户元素
+            userElement.appendChild(dropdown);
         }
     } catch (e) {
-        console.error('添加删除按钮失败:', e);
+        console.error('添加操作菜单失败:', e);
     }
-
     return messageElement;
 }
 
@@ -1211,6 +1877,7 @@ function processMessageQueue() {
     messageQueue.forEach(item => {
         try {
             item.element.innerHTML = window.renderContent(item.content);
+            if (typeof window.postProcessRendered === 'function') window.postProcessRendered(item.element);
         } catch (e) {
             console.error('队列消息渲染失败:', e);
             item.element.innerHTML = `<div class="render-error">${escapeHtml(item.content)}</div>`;
@@ -1224,15 +1891,91 @@ function tryRenderMessage(element, content) {
     if (typeof window.renderContent === 'function') {
         try {
             element.innerHTML = window.renderContent(content);
+            if (typeof window.postProcessRendered === 'function') window.postProcessRendered(element);
             return true;
         } catch (e) {
             console.error('消息渲染失败:', e);
         }
     }
 
-    // 降级渲染
-    element.innerHTML = `<div class="render-fallback">${escapeHtml(content)}</div>`;
+    // 渲染系统尚未准备好：把元素加入待渲染队列，稍后处理（renderReady 时会调用 processMessageQueue）
+    try {
+        // 保证 dataset.originalContent 存在
+        if (element && element.dataset) element.dataset.originalContent = content;
+        // 先显示解码后的安全文本作为占位（避免直接显示被转义的实体）
+        element.innerHTML = `<div class="render-fallback">${escapeHtml(decodeHTMLEntities(content))}</div>`;
+        // 将该元素排入全局队列以便后续重新渲染
+        try {
+            messageQueue.push({ element: element, content: content });
+        } catch (e) {
+            // 如果全局队列不可用，则尽量不阻塞
+            console.debug('无法将元素加入渲染队列', e);
+        }
+    } catch (e) {
+        console.debug('降级渲染失败，直接转义显示', e);
+        element.innerHTML = `<div class="render-fallback">${escapeHtml(content)}</div>`;
+    }
     return false;
+}
+
+// 触发爱心雨效果
+function triggerHeartRain() {
+    // 检查是否启用了爱心雨功能
+    const isHeartRainEnabled = localStorage.getItem('heartRainEnabled') !== 'false';
+    if (!isHeartRainEnabled) {
+        return; // 如果未启用，则不触发爱心雨
+    }
+
+    // 创建爱心雨容器
+    let container = document.querySelector('.heart-rain-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.className = 'heart-rain-container';
+        document.body.appendChild(container);
+    }
+
+    // 生成多个爱心
+    for (let i = 0; i < 20; i++) {
+        setTimeout(() => {
+            const heart = document.createElement('div');
+            heart.className = 'heart-rain';
+            heart.innerHTML = '<i class="fas fa-heart"></i>';
+
+            // 随机位置
+            const startPos = Math.random() * window.innerWidth;
+            heart.style.left = startPos + 'px';
+
+            // 随机大小
+            const size = 16 + Math.random() * 20;
+            heart.style.fontSize = size + 'px';
+
+            // 随机颜色
+            const colors = ['#ff6b6b', '#ff8e8e', '#ff5252', '#ff1744', '#f50057'];
+            heart.style.color = colors[Math.floor(Math.random() * colors.length)];
+
+            // 随机动画时长
+            const duration = 2 + Math.random() * 3;
+            heart.style.animationDuration = duration + 's';
+
+            container.appendChild(heart);
+
+            // 动画结束后移除元素
+            setTimeout(() => {
+                if (heart.parentNode) {
+                    heart.parentNode.removeChild(heart);
+                }
+            }, duration * 1000);
+        }, i * 100); // 依次延迟生成，营造连续效果
+    }
+
+    // 5秒后移除容器（如果没有其他爱心在下落）
+    setTimeout(() => {
+        if (container && container.children.length === 0) {
+            if (container.parentNode) {
+                container.parentNode.removeChild(container);
+            }
+        }
+    }, 6000);
 }
 
 // 重新尝试渲染所有消息
@@ -1272,14 +2015,26 @@ window.initChat = function () {
         // 1. 先设置UI元素
         const onlineCountElement = document.getElementById('online-count');
         if (onlineCountElement) {
-            onlineCountElement.textContent = '加载中...';
+            onlineCountElement.textContent = '加载中......';
         }
 
 
         setupMessageInput();
+        setupScrollListener(); // 设置滚动监听器
 
         // 2. 然后连接WebSocket
         setupWebSocket();
+        // Setup captcha modal and message update handlers once websocket is available
+        setTimeout(function () {
+            if (chatSocket) {
+                try {
+                    setupCaptchaModal(chatSocket);
+                    setupMessageUpdatedHandler(chatSocket);
+                } catch (e) {
+                    console.error('初始化验证码/更新处理器失败', e);
+                }
+            }
+        }, 600);
 
         // 3. 最后加载历史消息（确保WebSocket已设置好）
         setTimeout(() => {
@@ -1295,7 +2050,19 @@ window.initChat = function () {
         if (typeof window.renderContent === 'function') {
             isRenderingReady = true;
         }
+        if (chatSocket) {
+            window.roomHeartbeatInterval = setInterval(() => {
+                if (chatSocket.connected) {
+                    chatSocket.emit('heartbeat_chat', { room_id: roomId });
+                }
+            }, 5000);
 
+            window.updateOnlineCountInterval = setInterval(() => {
+                if (chatSocket.connected) {
+                    chatSocket.emit('get_online_users', { room_id: roomId });
+                }
+            }, 5000);
+        }
         console.log('聊天系统初始化完成');
     } catch (e) {
         console.error('聊天室初始化失败:', e);
@@ -1352,13 +2119,7 @@ window.addEventListener('unhandledrejection', function (e) {
     e.preventDefault();
 });
 
-// 全局在线人数更新 - 用于所有页面
-// 注意：此函数现在仅在非聊天页面使用，聊天页面的全局在线人数由base.html处理
-function initializeGlobalOnlineCount() {
-    // 不执行任何操作，因为全局在线人数现在由base.html统一管理
-    // 避免重复更新导致冲突
-    console.log('聊天页面的全局在线人数由base.html统一管理');
-}
+
 
 // 页面加载完成后自动初始化
 document.addEventListener('DOMContentLoaded', function () {
@@ -1379,4 +2140,12 @@ document.addEventListener('DOMContentLoaded', function () {
         // 如果不是聊天页面，仍然初始化全局在线人数更新
         initializeGlobalOnlineCount();
     }
+
+});
+
+// 监听来自设置页面的爱心雨开关变化事件
+window.addEventListener('heartRainSettingChanged', function (event) {
+    const isEnabled = event.detail;
+    localStorage.setItem('heartRainEnabled', isEnabled);
+    console.log('爱心雨设置已更新:', isEnabled ? '启用' : '禁用');
 });
