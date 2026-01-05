@@ -43,6 +43,8 @@ from flask_cors import CORS
 from logging.handlers import RotatingFileHandler
 # 配置
 from config import Config
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 # ----------
 # 初始化
 # ----------
@@ -104,7 +106,12 @@ captcha_lock = threading.Lock()
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
-
+# 初始化限流器
+limiter = Limiter(
+    app=app,  # 使用关键字参数指定 app
+    key_func=get_remote_address,
+    storage_uri="memory://"  # 内存存储，重启失效
+)
 # ----------
 # 模型定义
 # ----------
@@ -554,7 +561,7 @@ def sanitize_content(content, room_id=None):
         return ''.join(buf)
     # 读取所有HTML标签（静态列表，实际部署可直接硬编码）
     html_tags = [
-        'a','abbr','acronym','address','applet','area','article','aside','audio','b','base','basefont','bdi','bdo','big','blockquote','body','br','button','canvas','caption','center','cite','code','col','colgroup','data','datalist','dd','del','details','dfn','dialog','dir','div','dl','dt','em','embed','fieldset','figcaption','figure','font','footer','form','frame','frameset','h1','h2','h3','h4','h5','h6','head','header','hgroup','hr','html','i','iframe','img','input','ins','kbd','label','legend','li','link','main','map','mark','menu','meta','meter','nav','noframes','noscript','object','ol','optgroup','option','output','p','param','picture','pre','progress','q','rp','rt','ruby','s','samp','script','search','section','select','small','source','span','strike','strong','style','sub','summary','sup','svg','table','tbody','td','template','textarea','tfoot','th','thead','time','title','tr','track','tt','u','ul','var','video','wbr','!DOCTYPE'
+        'a','abbr','acronym','address','applet','area','article','aside','audio','b','base','basefont','bdi','bdo','big','blockquote','body','br','button','canvas','caption','center','cite','code','col','colgroup','data','datalist','dd','del','details','dfn','dialog','dir','div','dl','dt','em','embed','fieldset','figcaption','figure','font','footer','form','frame','frameset','h1','h2','h3','h4','h5','h6','head','math','header','hgroup','hr','html','i','iframe','img','input','ins','kbd','label','legend','li','link','main','map','mark','menu','meta','meter','nav','noframes','noscript','object','ol','optgroup','option','output','p','param','picture','pre','progress','q','rp','rt','ruby','s','samp','script','search','section','select','small','source','span','strike','strong','style','sub','summary','sup','svg','table','tbody','td','template','textarea','tfoot','th','thead','time','title','tr','track','tt','u','ul','var','video','wbr','!DOCTYPE','rb','rtc'
     ]
     # 构造严格的正则，移除所有这些标签（包括自闭合、带属性、大小写、h1-h6等）
     tag_regex = r'</?(' + '|'.join(html_tags) + r')(\s+[^>]*?|)\s*/?>'
@@ -804,6 +811,7 @@ def index():
     return redirect(url_for('login'))
 
 @app.route('/login', methods=['GET', 'POST'])
+@limiter.limit("5 per minute", methods=["POST"])  # 限制每分钟5次登录尝试
 def login():
     if current_user.is_authenticated:
         return redirect(url_for('index'))
