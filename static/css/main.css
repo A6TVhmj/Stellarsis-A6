@@ -312,7 +312,7 @@ header nav ul {
   gap: 24px;
 }
 
-header nav ul li a {
+header nav ul li {
   color: var(--text-color);
   text-decoration: none;
   font-weight: 600;
