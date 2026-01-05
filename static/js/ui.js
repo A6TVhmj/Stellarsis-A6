@@ -199,6 +199,8 @@
                 if (backdrop && backdrop.parentNode) backdrop.parentNode.removeChild(backdrop);
             }
 
+            // 支持自动超时选项：options.timeout (ms)
+            var _confirmTimeoutId = null;
             function cleanup(result) {
                 // 触发退出动画
                 backdrop.style.opacity = '0';
@@ -207,6 +209,8 @@
                 // 等待動畫结束再移除
                 var t = Math.max(220, 200);
                 setTimeout(function () {
+                    // 清理超时定时器
+                    if (_confirmTimeoutId) { clearTimeout(_confirmTimeoutId); _confirmTimeoutId = null; }
                     removeElements();
                     // 如果是带输入模式，返回输入字符串或 false
                     if (withInput) {
@@ -219,6 +223,13 @@
                         resolve(!!result);
                     }
                 }, t);
+            }
+
+            // 如果传入了 options.timeout（毫秒），则在超时后自动关闭并认为用户未确认
+            if (options.timeout && typeof options.timeout === 'number' && options.timeout > 0) {
+                _confirmTimeoutId = setTimeout(function () {
+                    cleanup(false);
+                }, options.timeout);
             }
 
             cancelBtn.addEventListener('click', function () { cleanup(false); });
@@ -245,5 +256,42 @@
             document.addEventListener('keydown', onKey);
         });
     };
+
+        // 设置用户无操作提示与自动登出
+        // 默认：5分钟无操作弹出确认，确认超时10秒则登出
+        window.setupInactivityLogout = function (opts) {
+            opts = opts || {};
+            var inactivityMs = typeof opts.inactivityMs === 'number' ? opts.inactivityMs : 5 * 60 * 1000;
+            var promptTimeoutMs = typeof opts.promptTimeoutMs === 'number' ? opts.promptTimeoutMs : 10 * 1000;
+
+            var activityEvents = ['mousemove', 'keydown', 'wheel', 'touchstart', 'click', 'scroll'];
+            var inactivityTimer = null;
+
+            function resetTimer() {
+                if (inactivityTimer) clearTimeout(inactivityTimer);
+                inactivityTimer = setTimeout(function () {
+                    // 弹出确认框，超时则登出
+                    window.showConfirm('您还在线吗？', { title: '提示', confirmText: '我在线', cancelText: '退出登录', timeout: promptTimeoutMs })
+                        .then(function (res) {
+                            if (res) {
+                                // 用户确认在线，重置计时器
+                                resetTimer();
+                            } else {
+                                // 未确认或取消 -> 跳转到登出
+                                try { window.location.href = '/logout'; } catch (e) { window.location.assign('/logout'); }
+                            }
+                        });
+                }, inactivityMs);
+            }
+
+            // 绑定活动事件以重置计时器
+            activityEvents.forEach(function (ev) { document.addEventListener(ev, resetTimer, { passive: true }); });
+
+            // 启动计时器
+            resetTimer();
+        };
+
+        // 页面加载后自动启用（可被覆盖或禁用）
+        try { window.setupInactivityLogout(); } catch (e) {}
 
 })();
