@@ -213,3 +213,5 @@ stellarsis.db
 logs/
 
 static/uploads/
+
+backups/
