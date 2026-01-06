@@ -432,7 +432,27 @@
                     }
                 } catch (e) { }
 
-                let html = marked.parse(content);
+                // 保护 fenced code blocks (```lang\ncode\n```)：先提取占位，转义其余内容，渲染后再恢复为安全的 <pre><code>
+                const codeBlocks = [];
+                const fencedRe = /```(\w+)?\n([\s\S]*?)```/g;
+                const placeholderPrefix = '@@CODEBLOCK_';
+                let tempContent = (content || '').replace(fencedRe, function(m, lang, code) {
+                    const idx = codeBlocks.length;
+                    codeBlocks.push({ lang: lang || '', code: code });
+                    return placeholderPrefix + idx + '@@';
+                });
+
+                // 转义除代码块外的所有内容
+                const safeContent = escapeHtml(tempContent);
+                let html = marked.parse(safeContent);
+
+                // 将占位符替换回安全的 code 区块（代码内容也做转义以确保安全）
+                html = html.replace(new RegExp(placeholderPrefix + '(\\d+)@@', 'g'), function(m, idx) {
+                    const cb = codeBlocks[Number(idx)];
+                    if (!cb) return '';
+                    const langClass = cb.lang ? ' class="language-' + escapeHtml(cb.lang) + '"' : '';
+                    return '<pre><code' + langClass + '>' + escapeHtml(cb.code) + '</code></pre>';
+                });
                 // 处理 @quote{123} 占位符为可被后处理识别的容器
                 html = html.replace(/@quote\{(\d+)\}/g, function (m, id) {
                     return '<div class="quote" data-quote-id="' + id + '">引用的消息: #' + id + '（加载中）</div>';

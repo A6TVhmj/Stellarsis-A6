@@ -165,7 +165,24 @@ function initializeRenderingSystem() {
                 const decoded = decodeHTMLEntities(content);
                 // 安全检查：确保marked可用
                 if (typeof marked !== 'undefined' && typeof marked.parse === 'function') {
-                    return marked.parse(decoded);
+                        // 保护 fenced code blocks：先提取占位，转义其余内容，渲染后再恢复
+                        const codeBlocks = [];
+                        const fencedRe = /```(\w+)?\n([\s\S]*?)```/g;
+                        const placeholderPrefix = '@@CODEBLOCK_';
+                        let temp = (decoded || '').replace(fencedRe, function(m, lang, code) {
+                            const idx = codeBlocks.length;
+                            codeBlocks.push({ lang: lang || '', code: code });
+                            return placeholderPrefix + idx + '@@';
+                        });
+                        const safe = escapeHtml(temp);
+                        let parsed = marked.parse(safe);
+                        parsed = parsed.replace(new RegExp(placeholderPrefix + '(\\d+)@@', 'g'), function(m, idx) {
+                            const cb = codeBlocks[Number(idx)];
+                            if (!cb) return '';
+                            const langClass = cb.lang ? ' class="language-' + escapeHtml(cb.lang) + '"' : '';
+                            return '<pre><code' + langClass + '>' + escapeHtml(cb.code) + '</code></pre>';
+                        });
+                        return parsed;
                 }
                 // 降级到简单HTML渲染
                 return simpleHtmlRender(decoded);
